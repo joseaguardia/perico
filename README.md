@@ -1,6 +1,6 @@
 # perico
 Pentesting Ridícilamente Cómodo. Un simple automatizador de escáneres con kali linux para pentesting web
-
+```
 #   $$$$$$$\  $$$$$$$$\ $$$$$$$\  $$$$$$\  $$$$$$\   $$$$$$\  
 #   $$  __$$\ $$  _____|$$  __$$\ \_$$  _|$$  __$$\ $$  __$$\ 
 #   $$ |  $$ |$$ |      $$ |  $$ |  $$ |  $$ /  \__|$$ /  $$ |
@@ -11,3 +11,4 @@ Pentesting Ridícilamente Cómodo. Un simple automatizador de escáneres con kal
 #   \__|      \________|\__|  \__|\______| \______/  \______/ 
 
     ###         PENTESTING RIDÍCULAMENTE CÓMODO            ###
+```
