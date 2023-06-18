@@ -14,8 +14,9 @@
 # Recibe en $1 una IP o una URL y en $2 el nivel [low|high]
 # y lanza ciertos escáneres guardando todo en archivos en una misma carpeta
 
-# !! Es necesario instalar gobuster y jq
-
+### REQUISITOS
+# Es necesario instalar gobuster y jq
+# También tener instalado o clonado https://github.com/danielmiessler/SecLists
 
 #Coge el token de las variables del sistema
 #Añade 'export WPSCAN_TOKEN='1234567890qwertyuiopasdfghjkl' a .zshrc o .bashrc o descomenta la siguiente línea
@@ -128,7 +129,7 @@ cat $RUTA/nmap_*_simple.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' 
 #wafw00f por cada puerto HTTP, tanto http como https
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+]\e[0m Comprobando WAF con wafw00f..." | tee -a $RUTA/RESUMEN.txt
-grep "Ports: " $RUTA/nmap_*.txt  | tr ' ' \\n | grep http | cut -d '/' -f1 | while read PORT; do
+grep "Ports: " $RUTA/nmap_*.txt  | tr ' ' \\n | grep http | grep -v httpd | cut -d '/' -f1 | sort -u | while read PORT; do
   if [[ $PORT = "443" ]] || [[ $PORT = "8443" ]]; then
     PROTOCOLO="https"
   else
@@ -140,11 +141,12 @@ done
 
 #Unimos las salidas en un mismo archivo
 cat /tmp/wafw00f_http*${SITIO}*.txt > $RUTA/wafw00f.txt && rm -f /tmp/wafw00f_http*${SITIO}*.txt
+cat $RUTA/wafw00f.txt | tee -a $RUTA/RESUMEN.txt
 
 
 #whatweb por cada puerto http detectado en nmap
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[+]\e[0m Detectando versiones y tipo de CMS con whatweb..."
+echo -e "\e[32m[+]\e[0m Detectando versiones y tipo de CMS con whatweb..." | tee -a $RUTA/RESUMEN.txt
 touch $RUTA/whatweb.txt
 grep "Ports: " $RUTA/nmap_*.txt  | tr ' ' \\n | grep http | cut -d '/' -f1 | while read PORT; do
   if [[ $PORT = "443" ]] || [[ $PORT = "8443" ]]; then
@@ -162,7 +164,7 @@ cat $RUTA/whatweb.txt | fold -w 155 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' |
 
 #curl (solo cabeceras y estados) por cada puerto http detectado en nmap
 echo | tee -a $RUTA/RESUMEN.txt
-echo "i\e[32m[+]\e[0m Sacando cabeceras y estados con curl..."
+echo -e "\e[32m[+]\e[0m Sacando cabeceras y estados con curl..." | tee -a $RUTA/RESUMEN.txt
 echo "." > $RUTA/curl.txt
 grep "Ports: " $RUTA/nmap_*.txt  | tr ' ' \\n | grep http | cut -d '/' -f1 | while read PORT; do
   echo "Puerto $PORT:" >> $RUTA/curl.txt
@@ -177,7 +179,7 @@ done
 #wpscan
 if grep -i "WordPress" $RUTA/whatweb.txt > /dev/null; then
   echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m[+]\e[0m Pasando wpscan..."
+  echo -e "\e[32m[+]\e[0m Detectada instalación de wordpress. Pasando wpscan..." | tee -a $RUTA/RESUMEN.txt
   wpscan --update > /dev/null
   wpscan --url http://$SITIO --enumerate vp,vt,dbe,cb --plugins-detection mixed --random-user-agent -o $RUTA/wpscan.txt --api-token "$WPSCAN_TOKEN"
   cat wpscan.txt | grep "\[\!\]" | sed 's/^[[:space:]]*//g' | tr -d '|' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
@@ -211,10 +213,11 @@ else
 fi
 
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[+]\e[0m Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)"
+echo -e "\e[32m[+]\e[0m Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)" | tee -a $RUTA/RESUMEN.txt
 gobuster dir --follow-redirect --random-agent -s "200,204,301,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -q -o $RUTA/gobuster_dir.txt > /dev/null
+echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo "  Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
+echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 grep "Status: 401" gobuster_dir.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
