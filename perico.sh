@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 #	  $$$$$$$\  $$$$$$$$\ $$$$$$$\  $$$$$$\  $$$$$$\   $$$$$$\  
 #	  $$  __$$\ $$  _____|$$  __$$\ \_$$  _|$$  __$$\ $$  __$$\ 
 #	  $$ |  $$ |$$ |      $$ |  $$ |  $$ |  $$ /  \__|$$ /  $$ |
@@ -14,9 +15,11 @@
 # Recibe en $1 una IP o una URL y en $2 el nivel [low|high]
 # y lanza ciertos escáneres guardando todo en archivos en una misma carpeta
 
+
 ### REQUISITOS
 # Es necesario instalar gobuster y jq
 # También tener instalado o clonado https://github.com/danielmiessler/SecLists
+# Clonado en /opt de https://github.com/drwetter/testssl.sh.git
 
 #Descomenta la siguiente línea si tienes token para la API de WPSCAN
 #WPSCAN_TOKEN='1234567890qwertyuiopasdfghjkl'
@@ -100,8 +103,8 @@ echo "$(cat $RUTA/IP_info-${IP}.txt  | jq '.org + " - " + .city + " (" + .countr
 #SSL
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+]\e[0m Verificando configuración SSL..." | tee -a $RUTA/RESUMEN.txt
-sslyze $SITIO --resum --reneg --heartbleed --certinfo --sslv2 --sslv3 --openssl_ccs > $RUTA/SSL.txt
-grep "Session Renegotiation:\|SSL 3.0 Cipher Suites:\|OpenSSL CCS Injection\|OpenSSL Heartbleed" SSL.txt -A1 | grep -v '\-\-' | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+/opt/testssl.sh/testssl.sh --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36" --protocols --vulnerable --quiet $SITIO > $RUTA/SSL.txt
+grep -v "(OK)" $RUTA/SSL.txt | grep -v "not offered" | tee -a $RUTA/RESUMEN.txt
 
 
 #theHarvester
@@ -114,13 +117,17 @@ cat theHarvester_pretty.json | jq '.emails, .hosts' | grep -v "\[\|\]" | tr -d '
 
 #nmap
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[+]\e[0m Pasando nmap..." | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[+]\e[0m Pasando nmap para TCP..." | tee -a $RUTA/RESUMEN.txt
 nmap -T4 --open -n -Pn -p- -sV -sC -O -oG $RUTA/nmap_TCP_grepeable.txt -oN $RUTA/nmap_TCP_completo.txt $SITIO > /dev/null
-nmap -T4 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
+#Si marcamos 'high', lanzamos también escaneo UDP
+if [[ $NIVEL = "high" ]]; then
+  echo -e "\e[32m[+]\e[0m Pasando nmap para UDP..." | tee -a $RUTA/RESUMEN.txt
+  nmap -T4 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
+fi
 cat $RUTA/nmap_*_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
-#wafw00f por cada puerto HTTP, tanto http como https
+#wafw00f por cada puerto HTTP
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+]\e[0m Comprobando WAF con wafw00f..." | tee -a $RUTA/RESUMEN.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v httpd | cut -d '/' -f1 | sort -u | while read PORT; do
@@ -132,7 +139,6 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v htt
   wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null
   echo "\\n" >> /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt    #Añadimos una nueva línea al final
 done
-
 #Unimos las salidas en un mismo archivo
 cat /tmp/wafw00f_http*${SITIO}*.txt > $RUTA/wafw00f.txt && rm -f /tmp/wafw00f_http*${SITIO}*.txt
 cat $RUTA/wafw00f.txt | tee -a $RUTA/RESUMEN.txt
@@ -163,9 +169,9 @@ echo "." > $RUTA/curl.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | cut -d '/' -f1 | while read PORT; do
   echo "Puerto $PORT:" >> $RUTA/curl.txt
   echo "Por http:" >> $RUTA/curl.txt
-  curl -kLIs http://$SITIO:$PORT >> $RUTA/curl.txt
+  curl -kLIs http://$SITIO:$PORT | tee -a $RUTA/RESUMEN.txt
   echo "Por https:" >> $RUTA/curl.txt
-  curl -kLIs https://$SITIO:$PORT >> $RUTA/curl.txt
+  curl -kLIs https://$SITIO:$PORT | tee -a $RUTA/RESUMEN.txt
   echo "---" >> $RUTA/curl.txt
 done
 
@@ -218,35 +224,25 @@ grep "Status: 401" gobuster_dir.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /
 #Si whatweb nos dice que es un WordPress, lanzamos otros gobuster específico para WP
 if grep -i "WordPress" $RUTA/whatweb.txt > /dev/null; then
   echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m[+]\e[0m Pasando gobuster específico para WordPress..."
-
-  #Buscar directorios específicos de WP
-  gobuster dir --follow-redirect --random-agent -s "200,204,301,302,307,401" -b "" -w /usr/share/seclists/Discovery/Web-Content/CMS/wordpress.fuzz.txt -u https://$SITIO -q -o $RUTA/gobuster_dir_WP.txt > /dev/null
+  echo -e "\e[32m[+]\e[0m Buscando backups de wp-config.php de WordPress..."
 
   #Fuzzing al archivo wp-config con varias extensiones
   gobuster fuzz --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --url https://${SITIO}/wp-configFUZZ --wordlist /opt/perico/wordlist/extensiones_wp_backs.txt -q -o $RUTA/gobuster_wpconfig.txt > /dev/null
 cat $RUTA/gobuster_wpconfig.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 fi
 
-
-#uniscan
-if [[ $NIVEL = "high" ]]; then
-  echo | tee -a $RUTA/RESUMEN.txt 
-  echo -e "\e[32m[+]\e[0m Pasando uniscan..." | tee -a $RUTA/RESUMEN.txt
-  uniscan -u https://$SITIO -qwedsgj > $RUTA/uniscan.txt
-fi
+#wapiti
+echo | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[+]\e[0m Escaneando con wapiti" | tee -a $RUTA/RESUMEN.txt
+wapiti -u http://$SITIO -o $RUTA/wapiti.txt -f txt >/dev/null
+sed -n '/Summary of vulnerabilities/,/\*\*\*\*/p' $RUTA/wapiti.txt | grep -v "\*\*\*" | grep -v ":   0" | tee -a $RUTA/RESUMEN.txt
 
 
-#nikto
-if [[ $NIVEL = "high" ]]; then
-  echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m[+]\e[0m Escaneando con nikto..." | tee -a $RUTA/RESUMEN.txt
-  nikto -followredirects -useragent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36" -nointeractive -Format txt -output $RUTA/nikto.txt -h $SITIO > /dev/null
-fi
-
+#Eliminamos archivos que ya no son necesarios:
+rm -f $RUTA/nmap_*_grepeable.txt
 
 
 # Venga Perico, a dormir la siesta que te lo has ganado
 
 echo | tee -a $RUTA/RESUMEN.txt
-echo "Todas las pruebas terminadas en $(date -u -d @${SECONDS} +'%Hh:%Mm')" | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32mTodas las pruebas terminadas en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
