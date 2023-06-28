@@ -19,5 +19,5 @@ Pentesting Ridícilamente Cómodo. Un simple automatizador de escáneres con kal
 Para ejecutarlo desde docker en cualquier sistema (toda la parte de docker gracias a [javierbernaldev](https://github.com/javierbernaldev))
 ```
 docker build --no-cache -t perico .
-docker run --rm -it -e WPSCAN_TOKEN=0123456789qwertyuiopasdfghjklzxcvbnm -v PATH_LOCAL:/root/proyectos_hack perico http://url_ejemplo.com
+docker run --rm -it -e WPSCAN_TOKEN=0123456789qwertyuiopasdfghjklzxcvbnm -v PATH_LOCAL:/root/proyectos_hack perico http://url_ejemplo.com [high]
 ```
