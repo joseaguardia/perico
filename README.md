@@ -27,6 +27,7 @@ gobuster DIR: para detectar directorios
 wapiti: busca varias vulnerabilidades (XSS, LFI. SQLi..)
 
 
+
 ![image](https://github.com/joseaguardia/perico/assets/16305835/53799cc8-c60b-4e48-a3c1-2393e2964dc7)
 
 
