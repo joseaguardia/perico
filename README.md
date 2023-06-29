@@ -12,19 +12,7 @@ Pentesting Ridícilamente Cómodo. Un simple automatizador de escáneres con kal
 
     ###         PENTESTING RIDÍCULAMENTE CÓMODO            ###
 ```
-Herramientas que ejecuta:
-    Datos de whois
-    Info de la IP (ipinfo.io): Proveedor, país...
-    testssl: suites de cifrado y posibles vulnerabilidades
-    theHarverster: subdominios y correos por OSINT
-    nmap: todos los puertos de TCP y los top100 de UDP, con detección de versión y servicio
-    wafw00f: por cada puerto http, comprobar si tiene algún WAF
-    whatweb: algo de info de las tecnologías usadas
-    curl: petición GET y POST a cada puerto http
-    wpscan: si whatweb detecta un wordpress, escanea plugins y temas vulnerables y usuarios
-    gobuster DNS: bruteforce para detectar subdominios
-    gobuster DIR: para detectar directorios
-    wapiti: busca varias vulnerabilidades (XSS, LFI. SQLi..)
+
 
 
 
