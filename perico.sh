@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Versión: 20230701a
+#Versión: 20230702
 
 #https://github.com/joseaguardia/perico
 
@@ -99,7 +99,7 @@ touch $RUTA/_notas.txt
 if ! [[ $SITIO =~ $IP ]]; then
   echo | tee -a $RUTA/RESUMEN.txt
   echo -e "\e[32m[+] Comprobando datos de whois\e[0m" | tee -a $RUTA/RESUMEN.txt
-  whois -H "$SITIO" | egrep -iv '(#|please query|personal data|redacted|whois|you agree)' | sed '/^$/d' > $RUTA/whois.txt
+  whois -H "$DOMINIO" | egrep -iv '(#|please query|personal data|redacted|whois|you agree)' | sed '/^$/d' > $RUTA/whois.txt
   grep "Registrar URL:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
   grep "Creation Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
   grep "Registry Expiry Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
@@ -111,7 +111,7 @@ fi
 #   IP Info
 ##########################
 if ! [[ $SITIO =~ $IP ]]; then
-  IP="$(dig +short $SITIO)"
+  IP="$(dig +short $SITIO | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' )"
 else
   IP="$SITIO"
 fi
@@ -138,7 +138,7 @@ grep -v "(OK)" $RUTA/SSL.txt | grep -v "not offered" | tee -a $RUTA/RESUMEN.txt
 ##########################
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Obteniendo datos con theHarvester\e[0m" | tee -a $RUTA/RESUMEN.txt
-theHarvester -d $SITIO -b all -f $RUTA/theHarvester.txt > /dev/null
+theHarvester -d $DOMINIO -b all -f $RUTA/theHarvester.txt > /dev/null
 jq . $RUTA/theHarvester.json > $RUTA/theHarvester_pretty.json && rm -f $RUTA/theHarvester.json && rm -f $RUTA/theHarvester.xml
 cat theHarvester_pretty.json | jq '.emails, .hosts' | grep -v "\[\|\]" | tr -d '"' | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 #echo -ne "${color_letras}${color_fondo}[ WHOIS ] [ IPInfo ] [ SSL ] [ HARVESTER ]${reset} [ NMAP ] [ WAFW00F ] [ WHATWEB ] [ CURL ] [ WPSCAN ] [ GOBUSTER DNS ] [ GOBUSTER DIR ] [ WAPITI ]\r"
@@ -278,11 +278,12 @@ grep "Status: 401" gobuster_dir.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /
 ##########################
 #   gobuster FUZZ
 ##########################
-EXTENSIONES="html,js,log,php,sh,sql,dmp,txt,cfg,yml,conf,gz,tgz,tar.gz,zip,rar,bak,new"
+EXTENSIONES="php,cfg,bak,sql,dmp,txt,log,conf,gz,tgz,tar.gz,zip,rar,new,old,sh,yml,php2,back"
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Buscando archivos con extensiones $EXTENSIONES\e[0m" | tee -a $RUTA/RESUMEN.txt
 echo $EXTENSIONES | tr ',' \\n | while read EXTENSION; do
-  gobuster fuzz --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url https://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -q -o $RUTA/gobuster_archivos_${EXTESION}.txt > /dev/null 
+  echo "\tComprobando extensión .$EXTENSION"
+  gobuster fuzz --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url https://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -q -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
 done
 #Unificamos las salidas
 cat $RUTA/gobuster_archivos_*.txt > $RUTA/gobuster_extensiones.txt
