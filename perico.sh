@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Versión: 20230703
+#Versión: 20230706
 
 #https://github.com/joseaguardia/perico
 
@@ -20,7 +20,7 @@
 #Al terminar pregunta si quieres lanzar un escaneo más profundo
 
 #Todo:
-
+# En el recon de DNS, comprobar si están en el mismo servidor
 
 ### REQUISITOS
 # Instalar gobuster y jq
@@ -56,6 +56,7 @@ SITIO="$(sed 's/http[s]\?:\/\///' <<<$1 | tr -d '/' | tr -d ' ')"
 #Sacamos el dominio raíz si no es una IP, por si pasamos un sudominio
 if ! [[ $SITIO =~ $IP ]]; then
   DOMINIO="$(rev <<<$SITIO | cut -d '.' -f1,2 | rev)"
+  DOMINIO_ROOT="$(rev <<<$SITIO | cut -d '.' -f1 | rev)"
 fi
 
 #Ruta raíz para guardar proyectos:
@@ -85,29 +86,30 @@ touch $RUTA/_notas.txt
 ##########################
 #   whois
 ##########################
-#Solo lo lanza si es un dominio (no funcionará en .es y otros dominios)
-if ! [[ $SITIO =~ $IP ]]; then
-  echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m[+] Comprobando datos de whois\e[0m" | tee -a $RUTA/RESUMEN.txt
-  whois -H "$DOMINIO" | egrep -iv '(#|please query|personal data|redacted|whois|you agree)' | sed '/^$/d' > $RUTA/whois.txt
-  grep "Registrar URL:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  grep "Creation Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  grep "Registry Expiry Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+#Solo lo lanza si no es un dominio .es
+if ! [[ $DOMINIO_ROOT = "es" ]]; then
+	if ! [[ $SITIO =~ $IP ]]; then
+	  echo | tee -a $RUTA/RESUMEN.txt
+	  echo -e "\e[32m[+] Comprobando datos de whois\e[0m" | tee -a $RUTA/RESUMEN.txt
+	  whois -H "$DOMINIO" | egrep -iv '(#|please query|personal data|redacted|whois|you agree)' | sed '/^$/d' > $RUTA/whois.txt
+	  grep "Registrar URL:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	  grep "Creation Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	  grep "Registry Expiry Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	fi
 fi
-
 
 ##########################
 #   IP Info
 ##########################
 if ! [[ $SITIO =~ $IP ]]; then
-  IP="$(dig +short $SITIO | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' )"
+  IPSITIO="$(dig +short $SITIO | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' )"
 else
-  IP="$SITIO"
+  IPSITIO="$SITIO"
 fi
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[+] Obteniendo información de la IP (${IP})\e[0m" | tee -a $RUTA/RESUMEN.txt
-curl -s "https://ipinfo.io/${IP}" > $RUTA/IP_info-${IP}.txt
-echo "$(cat $RUTA/IP_info-${IP}.txt  | jq '.org + " - " + .city + " (" + .country + ")"')" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[+] Obteniendo información de la IP (${IPSITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
+curl -s "https://ipinfo.io/${IPSITIO}" > $RUTA/IP_info-${IPSITIO}.txt
+echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .country + ")"')" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
 ##########################
@@ -205,7 +207,7 @@ WORDLIST='/usr/share/wordlists/seclists/Discovery/Web-Content/raft-small-words-l
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
-gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_small.txt | tail -n1
+###gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_small.txt | tail -n1
 echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
@@ -243,16 +245,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	theHarvester -d $DOMINIO -b all -f $RUTA/theHarvester.txt > /dev/null
 	jq . $RUTA/theHarvester.json > $RUTA/theHarvester_pretty.json && rm -f $RUTA/theHarvester.json && rm -f $RUTA/theHarvester.xml
 	cat theHarvester_pretty.json | jq '.emails, .hosts' | grep -v "\[\|\]" | tr -d '"' | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-	
-	
-	##########################
-	#   wapiti
-	##########################
-	echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m[+] Escaneando con wapiti\e[0m" | tee -a $RUTA/RESUMEN.txt
-	wapiti -u http://$SITIO -o $RUTA/wapiti.txt -f txt >/dev/null
-	sed -n '/Summary of vulnerabilities/,/\*\*\*\*/p' $RUTA/wapiti.txt | grep -v "\*\*\*" | grep -v ":   0" | tee -a $RUTA/RESUMEN.txt
-	
+
 	
 	##########################
 	#   gobuster DNS
@@ -264,11 +257,41 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	
 	  gobuster dns --no-error --timeout 3s -d $DOMINIO -z -o /tmp/gobuster_subdomains_$SITIO.txt -w $WORDLIST | tail -n1
 	
-	  #Quitamos duplicados
-	  cat /tmp/gobuster_subdomains_$SITIO.txt | tr '[:upper:]' '[:lower:]' | grep . | sort | uniq > $RUTA/gobuster_subdomains.txt
-	  rm /tmp/gobuster_subdomains_$SITIO.txt -f
-	  cat $RUTA/gobuster_subdomains.txt | sed 's/found: //g' | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    echo "" > $RUTA/gobuster_subdomains.txt
+    echo -e "\tRegistros DNS encontrados." 
+    echo -e "\tEn \e[32mverde\e[0m los subdominios en la misma máquina que la víctima." 
+
+    #Limpiamos y pasamos al bucle
+	  cat /tmp/gobuster_subdomains_$SITIO.txt | tr '[:upper:]' '[:lower:]' | grep . | sort | uniq | sed 's/found: //g' | sed 's/^[[:space:]]*//g' | while read SUB; do
+
+      #Resolución DNS de ese subdominio
+      REGISTRO="$(dig +short $SUB)" 
+
+		  #Eliminamos registros IPv6 y cname
+		  if [[ $REGISTRO =~ $IP ]]; then
+			  #Si el registro coincide con la IP de la víctima, lo ponemos en verde
+		    if [[ $REGISTRO = "$IPSITIO" ]]; then
+			    echo -e "\e[32m\t$REGISTRO\t$SUB\e[0m" >> $RUTA/gobuster_subdomains.txt
+			  else
+			    echo -e "\t$REGISTRO\t$SUB" >> $RUTA/gobuster_subdomains.txt
+			  fi
+		  fi
+		done
 	fi
+
+  #Pasamos a pantalla y resumen
+  sort -n $RUTA/gobuster_subdomains.txt | tee -a $RUTA/RESUMEN.txt
+
+	rm /tmp/gobuster_subdomains_$SITIO.txt -f
+
+	
+	##########################
+	#   wapiti
+	##########################
+	echo | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m[+] Escaneando con wapiti\e[0m" | tee -a $RUTA/RESUMEN.txt
+	wapiti -u http://$SITIO -o $RUTA/wapiti.txt -f txt >/dev/null
+	sed -n '/Summary of vulnerabilities/,/\*\*\*\*/p' $RUTA/wapiti.txt | grep -v "\*\*\*" | grep -v ":   0" | tee -a $RUTA/RESUMEN.txt
 	
 
 	##########################
