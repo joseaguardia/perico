@@ -1,29 +1,33 @@
 #!/bin/bash
 
-#Versión: 20230706
+#Versión: 20230714
 
 #https://github.com/joseaguardia/perico
 
-
-#   ██████╗ ███████╗██████╗ ██╗ ██████╗ ██████╗ 
-#   ██╔══██╗██╔════╝██╔══██╗██║██╔════╝██╔═══██╗
-#   ██████╔╝█████╗  ██████╔╝██║██║     ██║   ██║
-#   ██╔═══╝ ██╔══╝  ██╔══██╗██║██║     ██║   ██║
-#   ██║     ███████╗██║  ██║██║╚██████╗╚██████╔╝
-#   ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═════╝ 
-
-    ##     PENTESTING RIDÍCULAMENTE CÓMODO    ##
-
+clear
+echo -e "\e[1;35m"
+echo -e "   ██████╗ ███████╗██████╗ ██╗ ██████╗ ██████╗ "
+echo -e "   ██╔══██╗██╔════╝██╔══██╗██║██╔════╝██╔═══██╗"
+echo -e "   ██████╔╝█████╗  ██████╔╝██║██║     ██║   ██║"
+echo -e "   ██╔═══╝ ██╔══╝  ██╔══██╗██║██║     ██║   ██║"
+echo -e "   ██║     ███████╗██║  ██║██║╚██████╗╚██████╔╝"
+echo -e "   ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═════╝ "
+echo -e "\e[0m"
+echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO    ##"
+echo
+echo
 
 # Recibe en $1 una IP o una URL y lanza algunas herramientas básicas de pentesting
 # guardando todo en archivos en una misma carpeta y haciendo un resumen rápido
-#Al terminar pregunta si quieres lanzar un escaneo más profundo
+# Al terminar pregunta si quieres lanzar un escaneo más profundo
 
 #Todo:
-# En el recon de DNS, comprobar si están en el mismo servidor
+# Preguntar si se quiere pasar gobuster DIR y FUZZ en el resto de subdominios encontrados en la misma máquina
+# XssPy.py o xxser?
+# Spider de comentarios <!--
 
 ### REQUISITOS
-# Instalar gobuster y jq
+# Instalar gobuster, cmseek y jq
 # Clonar https://github.com/danielmiessler/SecLists en /usr/share/wordlists
 # Clonar https://github.com/drwetter/testssl.sh.git en /opt
 
@@ -35,10 +39,6 @@
 #Contador de tiempo a cero
 SECONDS=0
 
-#Colores
-color_letras="\e[30m"  
-color_fondo="\e[42m"   
-reset="\e[0m"          
 
 #Debe venir la URL o IP como $1
 if [[ -z $1 ]]; then
@@ -62,17 +62,18 @@ fi
 #Ruta raíz para guardar proyectos:
 RUTA="/root/proyectos_hack/$SITIO"
 
-
-#Crear carpeta del proyecto
-if mkdir -p $RUTA ; then
-
-  echo "Creada carpeta $RUTA"
-
-else
-
-  echo "[!] Error al crear $RUTA, posiblemente ya exista"
-  exit 1
-
+if [[ -e $RUTA ]]; then 
+  echo
+  echo -e "\e[1;35m[?] ¿La carpeta $RUTA ya existe. Eliminar su contenido y continuar\e[0m"
+  read -p "[y/N] " CONTINUAR
+  if ! [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
+    exit 1
+  else
+    rm -rf $RUTA/*
+    mkdir -p $RUTA
+    echo " " | tee -a $RUTA/RESUMEN.txt
+	  echo -e "\e[32m[i] Creada carpeta $RUTA\e[0m" | tee -a $RUTA/RESUMEN.txt
+  fi
 fi
 
 cd $RUTA
@@ -97,6 +98,7 @@ if ! [[ $DOMINIO_ROOT = "es" ]]; then
 	  grep "Registry Expiry Date:" $RUTA/whois.txt | head -1 | cut -d 'T' -f1 | xargs | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	fi
 fi
+
 
 ##########################
 #   IP Info
@@ -133,7 +135,7 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v htt
     PROTOCOLO="http"
   fi
   wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null
-  echo "\\n" >> /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt    #Añadimos una nueva línea al final
+  echo -e "\n" >> /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt    #Añadimos una nueva línea al final
 done
 #Unimos las salidas en un mismo archivo
 cat /tmp/wafw00f_http*${SITIO}*.txt > $RUTA/wafw00f.txt && rm -f /tmp/wafw00f_http*${SITIO}*.txt
@@ -157,8 +159,27 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "
   whatweb --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" ${PROTOCOLO}://$SITIO:$PORT >> $RUTA/whatweb.txt
   echo "---" >> $RUTA/whatweb.txt
 done
-cat $RUTA/whatweb.txt | fold -w 155 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+cat $RUTA/whatweb.txt | fold -w 165 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
+
+##########################
+#   cmseek
+##########################
+echo | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[+] Detectando CMS con cmseek\e[0m" | tee -a $RUTA/RESUMEN.txt
+cmseek --random-agent --batch --follow-redirect --url https://$SITIO >/dev/null
+cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
+rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
+
+
+##########################
+#   robots.txt 
+##########################
+if curl https://$SITIO/robots.txt -Lks | grep -v "404" >/dev/null; then
+  echo | tee -a $RUTA/RESUMEN.txt
+  echo -e "\e[32m[+] Archivo robots.txt\e[0m" | tee -a $RUTA/RESUMEN.txt
+  curl https://$SITIO/robots.txt -Lks | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+fi
 
 ##########################
 #   curl 
@@ -167,22 +188,22 @@ echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Sacando cabeceras y estados con curl\e[0m" | tee -a $RUTA/RESUMEN.txt
 echo "." > $RUTA/curl.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "httpd" | cut -d '/' -f1 | while read PORT; do
-  echo -e "\thttp://${SITIO}:$PORT - GET:" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -kLIs http://$SITIO:$PORT | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo -e "\thttps://${SITIO}:$PORT - GET:" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -kLIs https://$SITIO:$PORT | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo -e "\thttp://${SITIO}:$PORT - POST:" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -X POST -kLIs http://$SITIO:$PORT | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo -e "\thttps://${SITIO}:$PORT - POST:" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -X POST -kLIs https://$SITIO:$PORT | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+  echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+  curl -X GET -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+  echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+  curl -X GET -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+  echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+  curl -X POST -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+  echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+  curl -X POST -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
 done
 
 
@@ -207,7 +228,7 @@ WORDLIST='/usr/share/wordlists/seclists/Discovery/Web-Content/raft-small-words-l
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
-###gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_small.txt | tail -n1
+gobuster dir --no-tls-validation --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_small.txt | tail -n1
 echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
@@ -221,7 +242,7 @@ echo -e "\e[32mPruebas iniciales terminadas en $(date -u -d @${SECONDS} +'%Hh:%M
 ## Continuar con escaneo más profundo
 ################################################
 echo
-echo -e "\e[32m[?] ¿Quieres continuar con un escaneo más profundo?\e[0m"
+echo -e "\e[1;35m[?] ¿Quieres continuar con un escaneo más profundo?\e[0m"
 read -p "[y/N] " CONTINUAR
 if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
   SECONDS=0
@@ -255,7 +276,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	  echo -e "\e[32m[+] Pasando gobuster para subdominios\e[0m" | tee -a $RUTA/RESUMEN.txt
 	  WORDLIST='/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt'
 	
-	  gobuster dns --no-error --timeout 3s -d $DOMINIO -z -o /tmp/gobuster_subdomains_$SITIO.txt -w $WORDLIST | tail -n1
+	  gobuster dns --no-tls-validation --no-error --timeout 3s -d $DOMINIO -z -o /tmp/gobuster_subdomains_$SITIO.txt -w $WORDLIST | tail -n1
 	
     echo "" > $RUTA/gobuster_subdomains.txt
     echo -e "\tRegistros DNS encontrados." 
@@ -302,7 +323,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
-	gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
+	gobuster dir --no-tls-validation --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
 	echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 	cat $RUTA/gobuster_dir_big.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
@@ -317,7 +338,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	echo -e "\e[32m[+] Buscando archivos con extensiones $EXTENSIONES\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo $EXTENSIONES | tr ',' \\n | while read EXTENSION; do
 	  echo -e "\tComprobando extensión .$EXTENSION"
-	  gobuster fuzz --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url https://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
+	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url https://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
 	done
 	#Unificamos las salidas
 	cat $RUTA/gobuster_archivos_*.txt > $RUTA/gobuster_extensiones.txt
@@ -331,7 +352,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	  echo -e "\e[32m[+] Buscando backups de wp-config.php de WordPress\e[0m" | tee -a $RUTA/RESUMEN.txt
 	
 	  #Fuzzing al archivo wp-config con varias extensiones
-	  gobuster fuzz --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --url https://${SITIO}/wp-configFUZZ --wordlist /opt/perico/wordlist/extensiones_wp_backs.txt -q -o $RUTA/gobuster_wpconfig.txt | tail -n1
+	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --url https://${SITIO}/wp-configFUZZ --wordlist /opt/perico/wordlist/extensiones_wp_backs.txt -q -o $RUTA/gobuster_wpconfig.txt | tail -n1
 	cat $RUTA/gobuster_wpconfig.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	fi
 
@@ -349,13 +370,15 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
   rm -f $RUTA/nmap_*_grepeable.txt
 
   echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32mEscaneo profundo terminado en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
+  echo | tee -a $RUTA/RESUMEN.txt
+  echo -e "\e[1;35mEscaneo profundo terminado en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
 
   rm -f $RUTA/nmap_*_grepeable.txt
 
 else
 
-  echo "Escaneo inicial terminado"
+  echo
+  echo -e "\e[1;35mEscaneo inicial terminado\e[0m"
   #Eliminamos archivos que ya no son necesarios:
   rm -f $RUTA/nmap_*_grepeable.txt
   exit 0
