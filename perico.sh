@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Versión: 20230714
+#Versión: 20230715
 
 #https://github.com/joseaguardia/perico
 
@@ -68,13 +68,13 @@ if [[ -e $RUTA ]]; then
   read -p "[y/N] " CONTINUAR
   if ! [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
     exit 1
-  else
-    rm -rf $RUTA/*
-    mkdir -p $RUTA
-    echo " " | tee -a $RUTA/RESUMEN.txt
-	  echo -e "\e[32m[i] Creada carpeta $RUTA\e[0m" | tee -a $RUTA/RESUMEN.txt
   fi
+  rm -rf $RUTA/*
 fi
+
+mkdir -p $RUTA
+echo " " | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[i] Creada carpeta $RUTA\e[0m" | tee -a $RUTA/RESUMEN.txt
 
 cd $RUTA
 
