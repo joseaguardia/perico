@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Versión: 20230715
+#Versión: 20230719
 
 #https://github.com/joseaguardia/perico
 
@@ -25,6 +25,7 @@ echo
 # Preguntar si se quiere pasar gobuster DIR y FUZZ en el resto de subdominios encontrados en la misma máquina
 # XssPy.py o xxser?
 # Spider de comentarios <!--
+# Gestion de errores en gobuster
 
 ### REQUISITOS
 # Instalar gobuster, cmseek y jq
@@ -39,13 +40,20 @@ echo
 #Contador de tiempo a cero
 SECONDS=0
 
-
 #Debe venir la URL o IP como $1
 if [[ -z $1 ]]; then
   echo 'Hay que pasar la URL o IP como $1'
   exit 1
 fi
   
+#Para sitios sin SSL, $2 debe valer http
+if [[ $2 = "http" ]]; then
+  HTTP="http"
+else
+  HTTP="https"
+fi
+
+
 #ExprReg para ver si es una IP
 IP='^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
 
@@ -104,7 +112,7 @@ fi
 #   IP Info
 ##########################
 if ! [[ $SITIO =~ $IP ]]; then
-  IPSITIO="$(dig +short $SITIO | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' )"
+  IPSITIO="$(dig +short $SITIO | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)"
 else
   IPSITIO="$SITIO"
 fi
@@ -115,11 +123,11 @@ echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .c
 
 
 ##########################
-#   nmap TCP
+#   nmap TCP básico
 ##########################
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Pasando nmap para TCP\e[0m" | tee -a $RUTA/RESUMEN.txt
-nmap -T4 -sS --open -n -Pn -p- -sV -sC -O -oG $RUTA/nmap_TCP_grepeable.txt -oN $RUTA/nmap_TCP_completo.txt $SITIO > /dev/null
+nmap -T3 -sS --open -n -Pn -p- -oG $RUTA/nmap_TCP_grepeable.txt -oN $RUTA/nmap_TCP_completo.txt $SITIO > /dev/null
 cat $RUTA/nmap_TCP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
@@ -134,12 +142,12 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v htt
   else
     PROTOCOLO="http"
   fi
-  wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null
+  wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null 2>/dev/null
   echo -e "\n" >> /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt    #Añadimos una nueva línea al final
 done
 #Unimos las salidas en un mismo archivo
 cat /tmp/wafw00f_http*${SITIO}*.txt > $RUTA/wafw00f.txt && rm -f /tmp/wafw00f_http*${SITIO}*.txt
-cat $RUTA/wafw00f.txt | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+cat $RUTA/wafw00f.txt | sed 's/(None)//g' | awk '{gsub(/None/, "\033[32m&\033[0m")}1' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
 ##########################
@@ -167,7 +175,7 @@ cat $RUTA/whatweb.txt | fold -w 165 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' |
 ##########################
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Detectando CMS con cmseek\e[0m" | tee -a $RUTA/RESUMEN.txt
-cmseek --random-agent --batch --follow-redirect --url https://$SITIO >/dev/null
+cmseek --random-agent --batch --follow-redirect --url ${HTTP}://$SITIO >/dev/null
 cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
 rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 
@@ -175,10 +183,12 @@ rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 ##########################
 #   robots.txt 
 ##########################
-if curl https://$SITIO/robots.txt -Lks | grep -v "404" >/dev/null; then
+echo -e "\e[32m[+] Archivo robots.txt\e[0m" | tee -a $RUTA/RESUMEN.txt
+if ! curl ${HTTP}://$SITIO/robots.txt -Lks | grep -qi "404\|Captcha"; then
   echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m[+] Archivo robots.txt\e[0m" | tee -a $RUTA/RESUMEN.txt
-  curl https://$SITIO/robots.txt -Lks | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  curl ${HTTP}://$SITIO/robots.txt -Lks | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+else  
+  echo -e "\t\e[1;35m[!] Archivo robots.txt no encontrado o tiene captcha\e[0m" | tee -a $RUTA/RESUMEN.txt
 fi
 
 ##########################
@@ -188,21 +198,28 @@ echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Sacando cabeceras y estados con curl\e[0m" | tee -a $RUTA/RESUMEN.txt
 echo "." > $RUTA/curl.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "httpd" | cut -d '/' -f1 | while read PORT; do
-  echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -X GET -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
-  echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -X GET -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  #GET
+  if [[ $PORT =~ 443 ]]; then
+    echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+    curl -X GET -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  else
+    echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+    curl -X GET -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  fi 
 
-  echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -X POST -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-
-  echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-  curl -X POST -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  #POST
+  if [[ $PORT =~ 443 ]]; then
+    echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+    curl -X POST -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  else
+    echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
+    curl -X POST -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  fi 
 
 done
 
@@ -214,7 +231,7 @@ if grep -i "WordPress" $RUTA/whatweb.txt > /dev/null; then
   echo | tee -a $RUTA/RESUMEN.txt
   echo -e "\e[32m[+] Detectada instalación de wordpress. Pasando wpscan\e[0m" | tee -a $RUTA/RESUMEN.txt
   wpscan --update > /dev/null
-  wpscan --url http://$SITIO --enumerate vp,vt,dbe,cb,u --plugins-detection mixed --random-user-agent -o $RUTA/wpscan.txt --api-token "$WPSCAN_TOKEN"
+  wpscan --url ${HTTP}://$SITIO --enumerate vp,vt,dbe,cb,u --plugins-detection mixed --random-user-agent -o $RUTA/wpscan.txt --api-token "$WPSCAN_TOKEN"
   cat wpscan.txt | grep "\[\!\]\|Scan Aborted" | grep -v "The version is out of date" | sed 's/^[[:space:]]*//g' | tr -d '|' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 fi
 
@@ -228,11 +245,14 @@ WORDLIST='/usr/share/wordlists/seclists/Discovery/Web-Content/raft-small-words-l
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
-gobuster dir --no-tls-validation --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_small.txt | tail -n1
-echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
+gobuster dir --no-tls-validation --timeout 3s --threads 10 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2>$RUTA/gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
+echo " " | tee -a $RUTA/RESUMEN.txt
+echo -e "    Directorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
+echo -e "    Directorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo -e "    \e[1;35m[!!] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $(wc -l $WORDLIST | cut -d ' ' -f1)\e[0m" | tee -a $RUTA/RESUMEN.txt
+###rm -f $RUTA/gobuster_errores.log
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32mPruebas iniciales terminadas en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
@@ -251,12 +271,14 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	##########################
 	#   SSL
 	##########################
-	echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m[+] Verificando configuración SSL\e[0m" | tee -a $RUTA/RESUMEN.txt
-	/opt/testssl.sh/testssl.sh --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36" --protocols --vulnerable --quiet $SITIO > $RUTA/SSL.txt
-	echo | openssl s_client -connect ${SITIO}:443 2>/dev/null | openssl x509 -noout -dates -issuer | grep -i "notAfter\|issuer" | tac | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-	grep -v "(OK)" $RUTA/SSL.txt | grep -v "not offered" | tee -a $RUTA/RESUMEN.txt
-	
+	if [[ $HTTP = "https" ]]; then
+		echo | tee -a $RUTA/RESUMEN.txt
+		echo -e "\e[32m[+] Verificando configuración SSL\e[0m" | tee -a $RUTA/RESUMEN.txt
+		/opt/testssl.sh/testssl.sh --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36" --protocols --vulnerable --quiet $SITIO > $RUTA/SSL.txt
+		echo | openssl s_client -connect ${SITIO}:443 2>/dev/null | openssl x509 -noout -dates -issuer | grep -i "notAfter\|issuer" | tac | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+		grep -v "(OK)" $RUTA/SSL.txt | grep -v "not offered" | tee -a $RUTA/RESUMEN.txt
+  fi	
+
 	
 	##########################
 	#   theHarvester
@@ -311,9 +333,26 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	##########################
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m[+] Escaneando con wapiti\e[0m" | tee -a $RUTA/RESUMEN.txt
-	wapiti -u http://$SITIO -o $RUTA/wapiti.txt -f txt >/dev/null
+	wapiti -u ${HTTP}://$SITIO -o $RUTA/wapiti.txt -f txt >/dev/null
 	sed -n '/Summary of vulnerabilities/,/\*\*\*\*/p' $RUTA/wapiti.txt | grep -v "\*\*\*" | grep -v ":   0" | tee -a $RUTA/RESUMEN.txt
 	
+
+  ##########################
+  #   nmap TCP sC-sV
+  ##########################
+  echo | tee -a $RUTA/RESUMEN.txt
+  echo -e "\e[32m[+] Pasando nmap para TCP con opciones -sV y -sC\e[0m" | tee -a $RUTA/RESUMEN.txt
+  nmap -T4 -sS --open -n -Pn -p$(cat $RUTA/nmap_TCP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' ) -oN $RUTA/nmap_TCP_completo_sC-sV.txt $SITIO > /dev/null
+
+	
+	##########################
+	#   nmap UDP
+	##########################
+
+  echo -e "\e[32m[+]\e[0m Pasando nmap para UDP..." | tee -a $RUTA/RESUMEN.txt
+  nmap -T4 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
+  cat $RUTA/nmap_UDP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
 
 	##########################
 	#   gobuster DIR medium
@@ -323,7 +362,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
-	gobuster dir --no-tls-validation --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u https://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
+	gobuster dir --no-tls-validation --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
 	echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 	cat $RUTA/gobuster_dir_big.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
@@ -338,7 +377,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	echo -e "\e[32m[+] Buscando archivos con extensiones $EXTENSIONES\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo $EXTENSIONES | tr ',' \\n | while read EXTENSION; do
 	  echo -e "\tComprobando extensión .$EXTENSION"
-	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url https://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
+	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url ${HTTP}://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
 	done
 	#Unificamos las salidas
 	cat $RUTA/gobuster_archivos_*.txt > $RUTA/gobuster_extensiones.txt
@@ -352,18 +391,9 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	  echo -e "\e[32m[+] Buscando backups de wp-config.php de WordPress\e[0m" | tee -a $RUTA/RESUMEN.txt
 	
 	  #Fuzzing al archivo wp-config con varias extensiones
-	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --url https://${SITIO}/wp-configFUZZ --wordlist /opt/perico/wordlist/extensiones_wp_backs.txt -q -o $RUTA/gobuster_wpconfig.txt | tail -n1
+	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --url ${HTTP}://${SITIO}/wp-configFUZZ --wordlist /opt/perico/wordlist/extensiones_wp_backs.txt -q -o $RUTA/gobuster_wpconfig.txt | tail -n1
 	cat $RUTA/gobuster_wpconfig.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	fi
-
-	
-	##########################
-	#   nmap UDP
-	##########################
-
-  echo -e "\e[32m[+]\e[0m Pasando nmap para UDP..." | tee -a $RUTA/RESUMEN.txt
-  nmap -T4 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
-  cat $RUTA/nmap_UDP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
   #Eliminamos archivos que ya no son necesarios:
