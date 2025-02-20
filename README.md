@@ -36,14 +36,3 @@ docker build --no-cache -t perico .
 docker run --rm -it -e WPSCAN_TOKEN=0123456789qwertyuiopasdfghjklzxcvbnm -v PATH_LOCAL:/root/proyectos_hack perico http://url_ejemplo.com [high]
 ```
 
-AWS_ACCESS_KEY_ID='AKIAIOSFODNN7EXAMPLE'
-
-AWS_SECRET_ACCESS_KEY='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-
-## Token de GitHub
-
-GITHUB_TOKEN='ghp_1234567890abcdef1234567890abcdef1234'
-
-## Token de Slack
-
-SLACK_TOKEN='xoxb-1234567890-1234567890123-abcdefghijklmnopqrstuvwx'
