@@ -240,8 +240,8 @@ fi
 #   gobuster DIR small
 ##########################
 
-#WORDLIST='/usr/share/wordlists/seclists/Discovery/Web-Content/directory-list-2.3-small.txt'
-WORDLIST='/usr/share/wordlists/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt'
+#WORDLIST='/usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt'
+WORDLIST='/usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt'
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
@@ -296,7 +296,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	if ! [[ $SITIO =~ $IP ]]; then
 	  echo | tee -a $RUTA/RESUMEN.txt
 	  echo -e "\e[32m[+] Pasando gobuster para subdominios\e[0m" | tee -a $RUTA/RESUMEN.txt
-	  WORDLIST='/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt'
+	  WORDLIST='/usr/share/SecLists/Discovery/DNS/subdomains-top1million-5000.txt'
 	
 	  gobuster dns --no-tls-validation --no-error --timeout 3s -d $DOMINIO -z -o /tmp/gobuster_subdomains_$SITIO.txt -w $WORDLIST | tail -n1
 	
@@ -358,7 +358,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	#   gobuster DIR medium
 	##########################
 	
-	WORDLIST='/usr/share/wordlists/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt'
+	WORDLIST='/usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt'
 	
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
@@ -377,7 +377,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	echo -e "\e[32m[+] Buscando archivos con extensiones $EXTENSIONES\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo $EXTENSIONES | tr ',' \\n | while read EXTENSION; do
 	  echo -e "\tComprobando extensión .$EXTENSION"
-	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url ${HTTP}://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
+	  gobuster fuzz --no-tls-validation --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url ${HTTP}://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
 	done
 	#Unificamos las salidas
 	cat $RUTA/gobuster_archivos_*.txt > $RUTA/gobuster_extensiones.txt
