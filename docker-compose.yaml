@@ -1,0 +1,39 @@
+services:
+  kali:
+    image: kalilinux/kali-rolling
+    container_name: kali
+    stdin_open: true
+    tty: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - ./proyectos_hack:/root/proyectos_hack
+      - ./wireguard:/etc/wireguard
+    command: >
+      /bin/bash -c "
+        if [ ! -f /root/.first_run ]; then
+          touch /root/.first_run
+          echo "kali-docker" > /etc/hostname
+          mkdir -p /root/proyectos_hack
+          apt update -qq
+          apt install -y git wget jq curl git whois nmap cmseek jq wafw00f gobuster whatweb wpscan theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils
+
+          cd /opt && git clone https://github.com/joseaguardia/perico.git
+          chmod +x /opt/perico/perico.sh
+          ln -s /opt/perico/perico.sh /usr/local/bin/perico
+          
+          cd /opt && git clone https://github.com/drwetter/testssl.sh.git
+          
+          mkdir -p /usr/share/wordlists
+          cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists -v
+        fi
+        /bin/bash
+      "
+    restart: unless-stopped
+    networks:
+      - kali_net
+
+networks:
+  kali_net:
+    driver: bridge
