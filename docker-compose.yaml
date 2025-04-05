@@ -26,7 +26,7 @@ services:
           mkdir -p /usr/share/wordlists
           cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists > /dev/null
         fi
-        echo "hola"
+        cd /opt/perico && git pull
         /bin/bash
       "
     restart: unless-stopped
