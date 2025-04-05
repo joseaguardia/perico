@@ -125,7 +125,7 @@ echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .c
 ##########################
 #   SSL Basic info
 ##########################
-if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https"]]; then
+if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https" ]]; then
 
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m[+] Obteniendo información del certificado SSL (${IPSITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
