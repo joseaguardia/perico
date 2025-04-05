@@ -158,7 +158,7 @@ fi
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Pasando nmap para TCP top1000 y versiones\e[0m" | tee -a $RUTA/RESUMEN.txt
 nmap -T3 -sS --open -n -Pn -sV -oG $RUTA/nmap_TCP_top1000_grepeable.txt -oN $RUTA/nmap_TCP_top1000.txt $SITIO > /dev/null
-cat $RUTA/nmap_TCP_top1000_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | tee -a $RUTA/RESUMEN.txt
+cat $RUTA/nmap_TCP_top1000_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | awk '$2=="open" && $3=="tcp" { printf "\t\033[32m%-5s\033[0m %-12s %s\n", $1, $4, $5 FS $6 }' | tee -a $RUTA/RESUMEN.txt
 
 
 ##########################
@@ -206,7 +206,7 @@ cat $RUTA/whatweb.txt | fold -w 165 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' |
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Detectando CMS con cmseek\e[0m" | tee -a $RUTA/RESUMEN.txt
 cmseek --random-agent --batch --follow-redirect --url ${HTTP}://$SITIO >/dev/null
-cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
+cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
 rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 
 
