@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Versión: 20230719
+#Versión: 20250405
 
 #https://github.com/joseaguardia/perico
 
@@ -120,6 +120,35 @@ echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Obteniendo información de la IP (${IPSITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
 curl -s "https://ipinfo.io/${IPSITIO}" > $RUTA/IP_info-${IPSITIO}.txt
 echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .country + ")"')" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+
+##########################
+#   SSL Basic info
+##########################
+if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https"]]; then
+
+	echo | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m[+] Obteniendo información del certificado SSL (${IPSITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
+
+	CERT=$(echo | openssl s_client -connect "$SITIO:443" -servername "$SITIO" 2>/dev/null | openssl x509 -noout -issuer -subject -enddate)
+
+	ISSUER_O=$(echo "$CERT" | grep '^issuer=' | grep -o 'O=[^,/]*' | sed 's/O=//')
+	SUBJECT_CN=$(echo "$CERT" | grep '^subject=' | grep -o 'CN=[^,/]*' | sed 's/CN=//')
+	END_DATE_RAW=$(echo "$CERT" | grep '^notAfter=' | sed 's/notAfter=//')
+	END_DATE_FORMATTED=$(date -d "$END_DATE_RAW" "+%d/%m/%Y" 2>/dev/null)
+	END_DATE_SECS=$(date -d "$END_DATE_RAW" +%s 2>/dev/null)
+	NOW_SECS=$(date +%s)
+	if [[ -n "$END_DATE_SECS" ]]; then
+		DAYS_LEFT=$(( (END_DATE_SECS - NOW_SECS) / 86400 ))
+	else
+		DAYS_LEFT="N/A"
+	fi
+
+	echo "Provider:  ${ISSUER_O:-No disponible}" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	echo "CN         ${SUBJECT_CN:-No disponible}" | sed 's/^/\t/'  | tee -a $RUTA/RESUMEN.txt
+	echo "NotAfter:  ${END_DATE_FORMATTED:-No disponible} (${DAYS_LEFT}days)" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+fi
 
 
 ##########################
@@ -377,7 +406,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	echo -e "\e[32m[+] Buscando archivos con extensiones $EXTENSIONES\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo $EXTENSIONES | tr ',' \\n | while read EXTENSION; do
 	  echo -e "\tComprobando extensión .$EXTENSION"
-	  gobuster fuzz  --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url ${HTTP}://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
+	  gobuster fuzz  --no-error --timeout 3s --threads 15 --follow-redirect --random-agent --excludestatuscodes "300-302,400-404,500-503" --exclude-length 0 --url ${HTTP}://${SITIO}/FUZZ.$EXTENSION --wordlist /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt -o $RUTA/gobuster_archivos_${EXTENSION}.txt | tail -n1
 	done
 	#Unificamos las salidas
 	cat $RUTA/gobuster_archivos_*.txt > $RUTA/gobuster_extensiones.txt
