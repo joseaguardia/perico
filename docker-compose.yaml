@@ -29,8 +29,16 @@ services:
           
           rm /usr/share/wordlists -rf
           mkdir -p /usr/share/wordlists
-          cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists
+          cd /usr/share/wordlists
+          #For download all wordlists from SecLists: git clone https://github.com/danielmiessler/SecLists.git
+          #Download only the wordlists used in perico script
+          mkdir -p /usr/share/wordlists/SecLists/Discovery/Web-Content/
+          mkdir -p /usr/share/wordlists/SecLists/Discovery/DNS
+          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt -o /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
+          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt -o /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt 
+          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -o /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
         fi
+        cd /opt/perico && git pull
         /bin/bash
       "
     restart: unless-stopped
