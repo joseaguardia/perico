@@ -25,8 +25,9 @@ services:
           
           cd /opt && git clone https://github.com/drwetter/testssl.sh.git
           
+          rm /usr/share/wordlists -rf
           mkdir -p /usr/share/wordlists
-          cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists -v
+          cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists
         fi
         /bin/bash
       "

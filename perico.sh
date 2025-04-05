@@ -152,12 +152,13 @@ fi
 
 
 ##########################
-#   nmap TCP básico
+#   nmap TCP top1000
 ##########################
+#Básico
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[+] Pasando nmap para TCP\e[0m" | tee -a $RUTA/RESUMEN.txt
-nmap -T3 -sS --open -n -Pn -p- -oG $RUTA/nmap_TCP_grepeable.txt -oN $RUTA/nmap_TCP_completo.txt $SITIO > /dev/null
-cat $RUTA/nmap_TCP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[+] Pasando nmap para TCP top1000 y versiones\e[0m" | tee -a $RUTA/RESUMEN.txt
+nmap -T3 -sS --open -n -Pn -sV -oG $RUTA/nmap_TCP_top1000_grepeable.txt -oN $RUTA/nmap_TCP_top1000.txt $SITIO > /dev/null
+cat $RUTA/nmap_TCP_top1000_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | tee -a $RUTA/RESUMEN.txt
 
 
 ##########################
@@ -296,7 +297,25 @@ read -p "[y/N] " CONTINUAR
 if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
   SECONDS=0
 
-	
+
+	##########################
+	#   nmap TCP allports
+	##########################
+	#Básico
+	echo | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m[+] Pasando nmap para TCP allports y versiones\e[0m" | tee -a $RUTA/RESUMEN.txt
+	nmap -T3 -sS --open -n -Pn -sV -p- -oG $RUTA/nmap_TCP_allports_grepeable.txt -oN $RUTA/nmap_TCP_allports.txt $SITIO > /dev/null
+	cat $RUTA/nmap_TCP_allports_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | tee -a $RUTA/RESUMEN.txt
+
+	##########################
+	#   nmap UDP
+	##########################
+
+  echo -e "\e[32m[+]\e[0m Pasando nmap para UDP..." | tee -a $RUTA/RESUMEN.txt
+  nmap -T3 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
+  cat $RUTA/nmap_UDP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+
 	##########################
 	#   SSL
 	##########################
@@ -364,23 +383,6 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	echo -e "\e[32m[+] Escaneando con wapiti\e[0m" | tee -a $RUTA/RESUMEN.txt
 	wapiti -u ${HTTP}://$SITIO -o $RUTA/wapiti.txt -f txt >/dev/null
 	sed -n '/Summary of vulnerabilities/,/\*\*\*\*/p' $RUTA/wapiti.txt | grep -v "\*\*\*" | grep -v ":   0" | tee -a $RUTA/RESUMEN.txt
-	
-
-  ##########################
-  #   nmap TCP sC-sV
-  ##########################
-  echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m[+] Pasando nmap para TCP con opciones -sV y -sC\e[0m" | tee -a $RUTA/RESUMEN.txt
-  nmap -T4 -sS --open -n -Pn -p$(cat $RUTA/nmap_TCP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' ) -oN $RUTA/nmap_TCP_completo_sC-sV.txt $SITIO > /dev/null
-
-	
-	##########################
-	#   nmap UDP
-	##########################
-
-  echo -e "\e[32m[+]\e[0m Pasando nmap para UDP..." | tee -a $RUTA/RESUMEN.txt
-  nmap -T4 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
-  cat $RUTA/nmap_UDP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
 
 	##########################
