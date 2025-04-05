@@ -206,7 +206,7 @@ cat $RUTA/whatweb.txt | fold -w 165 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' |
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m[+] Detectando CMS con cmseek\e[0m" | tee -a $RUTA/RESUMEN.txt
 cmseek --random-agent --batch --follow-redirect --url ${HTTP}://$SITIO >/dev/null
-cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
+cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
 rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 
 
@@ -310,7 +310,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	##########################
 	#   nmap UDP
 	##########################
-
+	echo | tee -a $RUTA/RESUMEN.txt
   echo -e "\e[32m[+]\e[0m Pasando nmap para UDP..." | tee -a $RUTA/RESUMEN.txt
   nmap -T3 --open -n -Pn --top-ports 100 -sU -sV -oG $RUTA/nmap_UDP_grepeable.txt -oN $RUTA/nmap_UDP_completo.txt $SITIO > /dev/null
   cat $RUTA/nmap_UDP_grepeable.txt | grep -oP '\d{1,5}/open' | awk '{print $1}' FS='/' | xargs | tr ' ' ',' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
