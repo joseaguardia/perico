@@ -16,19 +16,17 @@ services:
           touch /root/.first_run
           echo "kali-docker" > /etc/hostname
           mkdir -p /root/proyectos_hack
-          apt update -qq
-          apt install -y git wget jq curl git whois nmap cmseek jq wafw00f gobuster whatweb wpscan theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils
-
-          cd /opt && git clone https://github.com/joseaguardia/perico.git
+          apt update -qq >/dev/null
+          apt install -qq -y --no-show-upgraded git wget jq curl git whois nmap cmseek jq wafw00f gobuster whatweb wpscan theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils >/dev/null 2>&1 || echo "Error: La instalación falló"
+          cd /opt && git clone https://github.com/joseaguardia/perico.git  > /dev/null
           chmod +x /opt/perico/perico.sh
           ln -s /opt/perico/perico.sh /usr/local/bin/perico
-          
-          cd /opt && git clone https://github.com/drwetter/testssl.sh.git
-          
+          cd /opt && git clone https://github.com/drwetter/testssl.sh.git  > /dev/null
           rm /usr/share/wordlists -rf
           mkdir -p /usr/share/wordlists
-          cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists
+          cd /usr/share/wordlists && git clone https://github.com/danielmiessler/SecLists > /dev/null
         fi
+        echo "hola"
         /bin/bash
       "
     restart: unless-stopped
