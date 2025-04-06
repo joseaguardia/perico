@@ -1,15 +1,15 @@
 services:
   kali:
     image: kalilinux/kali-rolling
-    container_name: kali
+    container_name: perico
     stdin_open: true
     tty: true
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
     volumes:
-      - ./proyectos_hack:/root/proyectos_hack
-      - ./wireguard:/etc/wireguard
+      - ./perico:/root/proyectos_hack
+      #- ./wireguard:/etc/wireguard
     environment:
       - WPSCAN_TOKEN=${WPSCAN_TOKEN}
     command: >
@@ -34,9 +34,9 @@ services:
           #Download only the wordlists used in perico script
           mkdir -p /usr/share/wordlists/SecLists/Discovery/Web-Content/
           mkdir -p /usr/share/wordlists/SecLists/Discovery/DNS
-          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt -o /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
-          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt -o /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt 
-          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -o /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
+          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
+          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt -O /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt 
+          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
         fi
         cd /opt/perico && git pull
         /bin/bash
