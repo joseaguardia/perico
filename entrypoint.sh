@@ -3,6 +3,7 @@ set -e
 
 # Initial configuration only on first run
 if [ ! -f /root/.first_run ]; then
+    echo "✨ Se van a instalar todos los paquetes necesarios. Ten paciencia."
     touch /root/.first_run
     echo "kali-docker" > /etc/hostname
     mkdir -p /root/proyectos_hack
@@ -20,9 +21,13 @@ if [ ! -f /root/.first_run ]; then
     ln -s /opt/perico/perico.sh /usr/local/bin/perico
     
     # Install testssl.sh
-    echo "🧩 Cloning and Installing testssl.sh..."
+    echo "🧩 Cloning and Installing testssl..."
     cd /opt && git clone --quiet https://github.com/drwetter/testssl.sh.git
     
+    #Install identyWAF
+    echo "🧩 Cloning and Installing identYwaf..."
+    cd /opt && git clone --depth 1 https://github.com/stamparm/identYwaf
+
     # Configure wordlists
     echo "🧩 Cloning wordlists from SecLists..."
     rm -rf /usr/share/wordlists
@@ -35,9 +40,13 @@ if [ ! -f /root/.first_run ]; then
     echo "cd /root/proyectos_hack/" >> /root/.bashrc
 fi
 
-# Update perico on every startup
+# Update repos on every startup
 echo "🧩 Updating perico..."
 cd /opt/perico && git pull
+echo "🧩 Updating testssl..."
+cd /opt/testssl.sh && git pull
+echo "🧩 Updating identYwaf..."
+cd /opt/identYwaf && git pull
 
 # Execute main command (bash by default)
 exec "$@"
