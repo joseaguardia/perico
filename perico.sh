@@ -128,7 +128,7 @@ echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .c
 if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https" ]]; then
 
 	echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m[+] Obteniendo información del certificado SSL (${IPSITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m[+] Obteniendo información del certificado SSL (${SITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
 
 	CERT=$(echo | openssl s_client -connect "$SITIO:443" -servername "$SITIO" 2>/dev/null | openssl x509 -noout -issuer -subject -enddate)
 
@@ -273,15 +273,17 @@ fi
 #WORDLIST='/usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt'
 WORDLIST='/usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt'
 
+DIC_SIZE=$(wc -l $WORDLIST | cut -d ' ' -f1)
+
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev)\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[+] Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev) - $DIC_SIZE entradas\e[0m" | tee -a $RUTA/RESUMEN.txt
 gobuster dir --timeout 3s --threads 10 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2>$RUTA/gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
 echo " " | tee -a $RUTA/RESUMEN.txt
 echo -e "    Directorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 echo -e "    Directorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo -e "    \e[1;35m[!!] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $(wc -l $WORDLIST | cut -d ' ' -f1)\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo -e "    \e[1;35m[!!] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $DIC_SIZE\e[0m" | tee -a $RUTA/RESUMEN.txt
 ###rm -f $RUTA/gobuster_errores.log
 
 echo | tee -a $RUTA/RESUMEN.txt

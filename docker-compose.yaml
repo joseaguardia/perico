@@ -1,7 +1,7 @@
 services:
   kali:
     image: kalilinux/kali-rolling
-    container_name: perico
+    container_name: kali
     stdin_open: true
     tty: true
     cap_add:
@@ -9,38 +9,11 @@ services:
       - SYS_MODULE
     volumes:
       - ./perico:/root/proyectos_hack
-      #- ./wireguard:/etc/wireguard
+      - ./entrypoint.sh:/entrypoint.sh
     environment:
       - WPSCAN_TOKEN=${WPSCAN_TOKEN}
-    command: >
-      /bin/bash -c "
-        if [ ! -f /root/.first_run ]; then
-          touch /root/.first_run
-          echo "kali-docker" > /etc/hostname
-          mkdir -p /root/proyectos_hack
-          apt update -qq
-          apt install -y git wget jq curl git whois nmap cmseek jq wafw00f gobuster whatweb wpscan theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils
-
-          cd /opt && git clone https://github.com/joseaguardia/perico.git
-          chmod +x /opt/perico/perico.sh
-          ln -s /opt/perico/perico.sh /usr/local/bin/perico
-          
-          cd /opt && git clone https://github.com/drwetter/testssl.sh.git
-          
-          rm /usr/share/wordlists -rf
-          mkdir -p /usr/share/wordlists
-          cd /usr/share/wordlists
-          #For download all wordlists from SecLists: git clone https://github.com/danielmiessler/SecLists.git
-          #Download only the wordlists used in perico script
-          mkdir -p /usr/share/wordlists/SecLists/Discovery/Web-Content/
-          mkdir -p /usr/share/wordlists/SecLists/Discovery/DNS
-          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
-          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt -O /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt 
-          wget https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
-        fi
-        cd /opt/perico && git pull
-        /bin/bash
-      "
+    entrypoint: ./entrypoint.sh
+    command: /bin/bash
     restart: unless-stopped
     networks:
       - kali_net
