@@ -12,6 +12,7 @@ services:
       - ./entrypoint.sh:/entrypoint.sh
     environment:
       - WPSCAN_TOKEN=${WPSCAN_TOKEN}
+      - TZ=Europe/Madrid
     entrypoint: ./entrypoint.sh
     command: /bin/bash
     restart: unless-stopped

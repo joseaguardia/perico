@@ -1,10 +1,11 @@
 #!/bin/bash
 
-VERSION="20250407"
+VERSION="20250408"
 
 #https://github.com/joseaguardia/perico
 
 clear
+echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO    ##"
 echo -e "\e[1;35m"
 echo -e "   ██████╗ ███████╗██████╗ ██╗ ██████╗ ██████╗ "
 echo -e "   ██╔══██╗██╔════╝██╔══██╗██║██╔════╝██╔═══██╗"
@@ -14,7 +15,7 @@ echo -e "   ██║     ███████╗██║  ██║██║�
 echo -e "   ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═════╝ "
 echo -e "                                    v.$VERSION"
 echo -e "\e[0m"
-echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO    ##"
+
 echo
 echo
 
@@ -33,9 +34,16 @@ echo
 # Clonar https://github.com/danielmiessler/SecLists en /usr/share/wordlists
 # Clonar https://github.com/drwetter/testssl.sh.git en /opt
 
-#Configura el token de la API de WPSCAN
-#WPSCAN_TOKEN='1234567890qwertyuiopasdfghjkl'
+random_user_agent() {
+  shuf -n 1 -e \
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.106 Safari/537.36" \
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13.3; rv:124.0) Gecko/20100101 Firefox/124.0" \
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1" \
+    "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.106 Mobile Safari/537.36" \
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.106 Safari/537.36 Edg/123.0.2420.65"
+}
 
+#curl -A "$(get_random_user_agent)" https://example.com
 
 
 #Contador de tiempo a cero
@@ -73,7 +81,7 @@ RUTA="/root/proyectos_hack/$SITIO"
 
 if [[ -e $RUTA ]]; then 
   echo
-  echo -e "\e[1;35m[?] ¿La carpeta $RUTA ya existe. Eliminar su contenido y continuar\e[0m"
+  echo -e "\e[1;35m[?] ¿La carpeta $RUTA ya existe. Eliminar su contenido y continuar?\e[0m"
   read -p "[y/N] " CONTINUAR
   if ! [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
     exit 1
@@ -131,24 +139,28 @@ if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https" ]]; then
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m🧩 Datos básicos del certificado SSL (${SITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
 
-	CERT=$(echo | openssl s_client -connect "$SITIO:443" -servername "$SITIO" 2>/dev/null | openssl x509 -noout -issuer -subject -enddate)
+	CERT=$(timeout 10s bash -c 'echo | openssl s_client -connect "'"$SITIO"':443" -servername "'"$SITIO"'" 2>/dev/null | openssl x509 -noout -issuer -subject -enddate')
 
-	ISSUER_O=$(echo "$CERT" | grep '^issuer=' | grep -o 'O=[^,/]*' | sed 's/O=//')
-	SUBJECT_CN=$(echo "$CERT" | grep '^subject=' | grep -o 'CN=[^,/]*' | sed 's/CN=//')
-	END_DATE_RAW=$(echo "$CERT" | grep '^notAfter=' | sed 's/notAfter=//')
-	END_DATE_FORMATTED=$(date -d "$END_DATE_RAW" "+%d/%m/%Y" 2>/dev/null)
-	END_DATE_SECS=$(date -d "$END_DATE_RAW" +%s 2>/dev/null)
-	NOW_SECS=$(date +%s)
-	if [[ -n "$END_DATE_SECS" ]]; then
-		DAYS_LEFT=$(( (END_DATE_SECS - NOW_SECS) / 86400 ))
+	if [ -z "$CERT" ]; then
+		echo -e "\t\e[1;31m[!] No se ha podido obtener el certificado SSL\e[0m" | tee -a $RUTA/RESUMEN.txt
+	
 	else
-		DAYS_LEFT="N/A"
+		ISSUER_O=$(echo "$CERT" | grep '^issuer=' | grep -o 'O=[^,/]*' | sed 's/O=//')
+		SUBJECT_CN=$(echo "$CERT" | grep '^subject=' | grep -o 'CN=[^,/]*' | sed 's/CN=//')
+		END_DATE_RAW=$(echo "$CERT" | grep '^notAfter=' | sed 's/notAfter=//')
+		END_DATE_FORMATTED=$(date -d "$END_DATE_RAW" "+%d/%m/%Y" 2>/dev/null)
+		END_DATE_SECS=$(date -d "$END_DATE_RAW" +%s 2>/dev/null)
+		NOW_SECS=$(date +%s)
+		if [[ -n "$END_DATE_SECS" ]]; then
+			DAYS_LEFT=$(( (END_DATE_SECS - NOW_SECS) / 86400 ))
+		else
+			DAYS_LEFT="N/A"
+		fi
+
+		echo "Provider:  ${ISSUER_O:-No disponible}" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+		echo "CN         ${SUBJECT_CN:-No disponible}" | sed 's/^/\t/'  | tee -a $RUTA/RESUMEN.txt
+		echo "NotAfter:  ${END_DATE_FORMATTED:-No disponible} (${DAYS_LEFT}days)" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	fi
-
-	echo "Provider:  ${ISSUER_O:-No disponible}" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-	echo "CN         ${SUBJECT_CN:-No disponible}" | sed 's/^/\t/'  | tee -a $RUTA/RESUMEN.txt
-	echo "NotAfter:  ${END_DATE_FORMATTED:-No disponible} (${DAYS_LEFT}days)" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-
 fi
 
 
@@ -159,22 +171,29 @@ fi
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m🧩 nmap para TCP top1000 y detección de versiones\e[0m" | tee -a $RUTA/RESUMEN.txt
 nmap -T3 -sS --open -n -Pn -sV -oG $RUTA/nmap_TCP_top1000_grepeable.txt -oN $RUTA/nmap_TCP_top1000.txt $SITIO > /dev/null
-cat $RUTA/nmap_TCP_top1000_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | awk '$2=="open" && $3=="tcp" { printf "\t\033[32m%-5s\033[0m %-12s %s\n", $1, $4, $5 FS $6 }' | tee -a $RUTA/RESUMEN.txt
-
+if grep -q "Ports:" $RUTA/nmap_TCP_top1000_grepeable.txt ; then
+	cat $RUTA/nmap_TCP_top1000_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | awk '$2=="open" && $3=="tcp" { printf "\t\033[32m%-5s\033[0m %-12s %s\n", $1, $4, $5 FS $6 }' | tee -a $RUTA/RESUMEN.txt
+else
+	echo -e "\t\e[1;31m[!] No se han encontrado puertos abiertos\e[0m" | tee -a $RUTA/RESUMEN.txt
+fi
 
 ##########################
 #   wafw00f
 ##########################
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m🧩 Comprobando WAF con wafw00f\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m🧩 Detectando WAF con wafw00f\e[0m" | tee -a $RUTA/RESUMEN.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v httpd | cut -d '/' -f1 | sort -u | while read PORT; do
   if [[ $PORT = "443" ]] || [[ $PORT = "8443" ]]; then
     PROTOCOLO="https"
   else
     PROTOCOLO="http"
   fi
-  wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null 2>/dev/null
+  wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null 2>$RUTA/wafw00f_${SITIO}-$PORT.err
   echo -e "\n" >> /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt    #Añadimos una nueva línea al final
+	#Comprobamos si ha dado error
+	if [ -s $RUTA/wafw00f_${SITIO}-$PORT.err ]; then
+		echo -e "\t\e[1;31m[!] Error al detectar WAF en el puerto ${PORT}. Puede que nos hayan bloqueado.\e[0m" | tee -a $RUTA/RESUMEN.txt
+	fi
 done
 #Unimos las salidas en un mismo archivo
 cat /tmp/wafw00f_http*${SITIO}*.txt > $RUTA/wafw00f.txt && rm -f /tmp/wafw00f_http*${SITIO}*.txt
@@ -195,11 +214,14 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "
   fi
 
   echo "Puerto $PORT por ${PROTOCOLO}:" >> $RUTA/whatweb.txt
-  whatweb --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" ${PROTOCOLO}://$SITIO:$PORT >> $RUTA/whatweb.txt
+  whatweb --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" ${PROTOCOLO}://$SITIO:$PORT >> $RUTA/whatweb.txt 2>$RUTA/whatweb_${SITIO}-$PORT.err
   echo "---" >> $RUTA/whatweb.txt
 done
-cat $RUTA/whatweb.txt | fold -w 165 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-
+if [[ -s $RUTA/whatweb_${SITIO}-$PORT.err ]]; then
+	echo -e "\t\e[1;31m[!] Error al detectar en el puerto ${PORT}. Puede que nos hayan bloqueado.\e[0m" | tee -a $RUTA/RESUMEN.txt
+else
+	cat $RUTA/whatweb.txt | fold -w 165 | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+fi
 
 ##########################
 #   cmseek
@@ -215,11 +237,14 @@ rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 #   robots.txt 
 ##########################
 echo -e "\e[32m🧩 Descargando archivo robots.txt\e[0m" | tee -a $RUTA/RESUMEN.txt
-if ! curl ${HTTP}://$SITIO/robots.txt -Lks | grep -qi "404\|Captcha"; then
+CURL_RESPONSE=$(curl  -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks ) > /dev/null
+if [[ $CURL_RESPONSE =~ 404 ]] || [[ $CURL_RESPONSE =~ (?i)captcha ]] || [[ -z $CURL_RESPONSE ]]; then
   echo | tee -a $RUTA/RESUMEN.txt
-  curl ${HTTP}://$SITIO/robots.txt -Lks | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	echo -e "\t\e[1;31m[!] Archivo robots.txt no encontrado o tiene captcha\e[0m" | tee -a $RUTA/RESUMEN.txt
+  
 else  
-  echo -e "\t\e[1;35m[!] Archivo robots.txt no encontrado o tiene captcha\e[0m" | tee -a $RUTA/RESUMEN.txt
+ 	echo $CURL_RESPONSE | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
 fi
 
 ##########################
@@ -233,22 +258,22 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "
   #GET
   if [[ $PORT =~ 443 ]]; then
     echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl -X GET -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    curl  -A "$(random_user_agent)" --max-time 10 -X GET -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
     echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
   else
     echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl -X GET -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    curl  -A "$(random_user_agent)" --max-time 10 -X GET -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
     echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
   fi 
 
   #POST
   if [[ $PORT =~ 443 ]]; then
     echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl -X POST -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    curl  -A "$(random_user_agent)" --max-time 10 -X POST -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
     echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
   else
     echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl -X POST -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+    curl  -A "$(random_user_agent)" --max-time 10 -X POST -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
     echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
   fi 
 

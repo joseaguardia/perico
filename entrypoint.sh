@@ -3,7 +3,9 @@ set -e
 
 # Initial configuration only on first run
 if [ ! -f /root/.first_run ]; then
-    echo "✨ Se van a instalar todos los paquetes necesarios. Ten paciencia."
+    echo -n
+    echo "✨ All the necessary packages will be installed. Please be patient."
+    echo -n
     touch /root/.first_run
     echo "kali-docker" > /etc/hostname
     mkdir -p /root/proyectos_hack
@@ -26,7 +28,7 @@ if [ ! -f /root/.first_run ]; then
     
     #Install identyWAF
     echo "🧩 Cloning and Installing identYwaf..."
-    cd /opt && git clone --depth 1 https://github.com/stamparm/identYwaf
+    cd /opt && git clone --depth 1 --quiet  https://github.com/stamparm/identYwaf
 
     # Configure wordlists
     echo "🧩 Cloning wordlists from SecLists..."
@@ -38,15 +40,16 @@ if [ ! -f /root/.first_run ]; then
     wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
 
     echo "cd /root/proyectos_hack/" >> /root/.bashrc
-fi
 
-# Update repos on every startup
-echo "🧩 Updating perico..."
-cd /opt/perico && git pull
-echo "🧩 Updating testssl..."
-cd /opt/testssl.sh && git pull
-echo "🧩 Updating identYwaf..."
-cd /opt/identYwaf && git pull
+else
+    # Update repos on every startup
+    echo "🧩 Updating perico..."
+    cd /opt/perico && git pull
+    echo "🧩 Updating testssl..."
+    cd /opt/testssl.sh && git pull
+    echo "🧩 Updating identYwaf..."
+    cd /opt/identYwaf && git pull
+fi
 
 # Execute main command (bash by default)
 exec "$@"
