@@ -1,11 +1,9 @@
 #!/bin/bash
 
-VERSION="20250408"
-
-#https://github.com/joseaguardia/perico
+VERSION="20250409"
 
 clear
-echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO    ##"
+echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO   ##"
 echo -e "\e[1;35m"
 echo -e "   ██████╗ ███████╗██████╗ ██╗ ██████╗ ██████╗ "
 echo -e "   ██╔══██╗██╔════╝██╔══██╗██║██╔════╝██╔═══██╗"
@@ -13,17 +11,19 @@ echo -e "   ██████╔╝█████╗  ██████╔╝
 echo -e "   ██╔═══╝ ██╔══╝  ██╔══██╗██║██║     ██║   ██║"
 echo -e "   ██║     ███████╗██║  ██║██║╚██████╗╚██████╔╝"
 echo -e "   ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═════╝ "
-echo -e "                                    v.$VERSION"
+echo -e "\e[0;36m        https://github.com/joseaguardia/perico"
+echo -e "\e[1;36m                                    v.$VERSION"
 echo -e "\e[0m"
-
-echo
-echo
+ 
 
 # Recibe en $1 una IP o una URL y lanza algunas herramientas básicas de pentesting
 # guardando todo en archivos en una misma carpeta y haciendo un resumen rápido
 # Al terminar pregunta si quieres lanzar un escaneo más profundo
 
 #Todo:
+# puntuación en ip abuse db
+# whatweb por cad puerto HTTP
+# owasp-zap cli
 # Preguntar si se quiere pasar gobuster DIR y FUZZ en el resto de subdominios encontrados en la misma máquina
 # XssPy.py o xxser?
 # Spider de comentarios <!--
@@ -42,8 +42,6 @@ random_user_agent() {
     "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.106 Mobile Safari/537.36" \
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.106 Safari/537.36 Edg/123.0.2420.65"
 }
-
-#curl -A "$(get_random_user_agent)" https://example.com
 
 
 #Contador de tiempo a cero
@@ -81,8 +79,8 @@ RUTA="/root/proyectos_hack/$SITIO"
 
 if [[ -e $RUTA ]]; then 
   echo
-  echo -e "\e[1;35m[?] ¿La carpeta $RUTA ya existe. Eliminar su contenido y continuar?\e[0m"
-  read -p "[y/N] " CONTINUAR
+  echo -e "\e[1;35m[?] ¿La carpeta $RUTA ya existe.\e[0m"
+  read -p "Eliminar su contenido y continuar? [y/N] " CONTINUAR
   if ! [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
     exit 1
   fi
@@ -91,7 +89,7 @@ fi
 
 mkdir -p $RUTA
 echo " " | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m[i] Creada carpeta $RUTA\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m[📂] Creada carpeta $RUTA\e[0m" | tee -a $RUTA/RESUMEN.txt
 
 cd $RUTA
 
@@ -100,6 +98,27 @@ touch $RUTA/_notas.txt
 
 
 ### ATACA PERICO, ATACA !!
+
+
+
+##########################
+#   AbuseIPDB
+##########################
+OUR_PUBLIC_IP=$(curl -Lks ifconfig.me)
+#Obtiene el rating de AbuseIPDB:
+ABUSEIPDB=$(curl --connect-timeout 5 -sLG https://api.abuseipdb.com/api/v2/check --data-urlencode "ipAddress=$OUR_PUBLIC_IP" \
+	-d maxAgeInDays=90 -d verbose -H "Key: $ABUSEIPDB_API_KEY" -H "Accept: application/json")
+
+ABUSESCORE=$(echo "$ABUSEIPDB" | jq '.data.abuseConfidenceScore')
+ABUSEREPORTS=$(echo "$ABUSEIPDB" | jq '.data.totalReports')
+
+echo -e "
+AbuseIPDB information:
+\t[+] My Public IP: \t$OUR_PUBLIC_IP
+\t[+] Abuse Score: \t\e[1;35m$ABUSESCORE% \e[0m
+\t[+] Total Reports: \t$ABUSEREPORTS times"
+
+
 
 ##########################
 #   whois
@@ -181,23 +200,21 @@ fi
 #   wafw00f
 ##########################
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m🧩 Detectando WAF con wafw00f\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m🧩 Detectando WAF con wafw00f (solo puertos *443*)\e[0m" | tee -a $RUTA/RESUMEN.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v httpd | cut -d '/' -f1 | sort -u | while read PORT; do
-  if [[ $PORT = "443" ]] || [[ $PORT = "8443" ]]; then
-    PROTOCOLO="https"
-  else
-    PROTOCOLO="http"
-  fi
-  wafw00f -o /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt $PROTOCOLO://$SITIO:$PORT > /dev/null 2>$RUTA/wafw00f_${SITIO}-$PORT.err
-  echo -e "\n" >> /tmp/wafw00f_${PROTOCOLO}_${SITIO}_puerto$PORT.txt    #Añadimos una nueva línea al final
-	#Comprobamos si ha dado error
-	if [ -s $RUTA/wafw00f_${SITIO}-$PORT.err ]; then
-		echo -e "\t\e[1;31m[!] Error al detectar WAF en el puerto ${PORT}. Puede que nos hayan bloqueado.\e[0m" | tee -a $RUTA/RESUMEN.txt
+  if [[ $PORT =~ 443 ]]; then
+  	wafw00f -o $RUTA/wafw00f_${SITIO}_puerto$PORT.txt https://$SITIO:$PORT > /dev/null 2>$RUTA/wafw00f_${SITIO}-$PORT.err
+  	echo -e "\n" >> $RUTA/wafw00f_${SITIO}_$PORT.txt  
+		#Comprobamos si ha dado error
+		if [ -s $RUTA/wafw00f_${SITIO}-$PORT.err ]; then
+			echo -e "\t\e[1;31m[!] Error al detectar WAF en el puerto ${PORT}. Puede que nos hayan bloqueado.\e[0m" | tee -a $RUTA/RESUMEN.txt
+			head -n1 $RUTA/wafw00f_${SITIO}-$PORT.err | tee -a $RUTA/RESUMEN.txt
+		else
+			cat $RUTA/wafw00f*.txt | sed 's/(None)//g' | awk '{gsub(/None/, "\033[32m&\033[0m")}1' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+		fi
 	fi
 done
-#Unimos las salidas en un mismo archivo
-cat /tmp/wafw00f_http*${SITIO}*.txt > $RUTA/wafw00f.txt && rm -f /tmp/wafw00f_http*${SITIO}*.txt
-cat $RUTA/wafw00f.txt | sed 's/(None)//g' | awk '{gsub(/None/, "\033[32m&\033[0m")}1' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
 
 
 ##########################
@@ -214,7 +231,7 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "
   fi
 
   echo "Puerto $PORT por ${PROTOCOLO}:" >> $RUTA/whatweb.txt
-  whatweb --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" ${PROTOCOLO}://$SITIO:$PORT >> $RUTA/whatweb.txt 2>$RUTA/whatweb_${SITIO}-$PORT.err
+  whatweb --user-agent "$(random_user_agent)" ${PROTOCOLO}://$SITIO:$PORT >> $RUTA/whatweb.txt 2>$RUTA/whatweb_${SITIO}-$PORT.err
   echo "---" >> $RUTA/whatweb.txt
 done
 if [[ -s $RUTA/whatweb_${SITIO}-$PORT.err ]]; then
@@ -237,8 +254,8 @@ rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 #   robots.txt 
 ##########################
 echo -e "\e[32m🧩 Descargando archivo robots.txt\e[0m" | tee -a $RUTA/RESUMEN.txt
-CURL_RESPONSE=$(curl  -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks ) > /dev/null
-if [[ $CURL_RESPONSE =~ 404 ]] || [[ $CURL_RESPONSE =~ (?i)captcha ]] || [[ -z $CURL_RESPONSE ]]; then
+CURL_RESPONSE=$(curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks ) > /dev/null
+if [[ $CURL_RESPONSE =~ 404 ]] || [[ $CURL_RESPONSE =~ 403 ]] || [[ $CURL_RESPONSE =~ (?i)captcha ]] || [[ -z $CURL_RESPONSE ]]; then
   echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\t\e[1;31m[!] Archivo robots.txt no encontrado o tiene captcha\e[0m" | tee -a $RUTA/RESUMEN.txt
   
@@ -255,27 +272,23 @@ echo -e "\e[32m🧩 Sacando cabeceras y estados con curl\e[0m" | tee -a $RUTA/RE
 echo "." > $RUTA/curl.txt
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "httpd" | cut -d '/' -f1 | while read PORT; do
 
-  #GET
-  if [[ $PORT =~ 443 ]]; then
-    echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl  -A "$(random_user_agent)" --max-time 10 -X GET -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  else
-    echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl  -A "$(random_user_agent)" --max-time 10 -X GET -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  fi 
+#GET
+if [[ $PORT =~ 443 ]]; then
+    echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+    echo -n | tee -a $RUTA/RESUMEN.txt
+else
+    echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+    echo -n | tee -a $RUTA/RESUMEN.txt
+fi 
 
-  #POST
-  if [[ $PORT =~ 443 ]]; then
-    echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl  -A "$(random_user_agent)" --max-time 10 -X POST -kLIs https://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  else
-    echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m" | tee -a $RUTA/RESUMEN.txt $RUTA/curl.txt
-    curl  -A "$(random_user_agent)" --max-time 10 -X POST -kLIs http://$SITIO:$PORT | grep "HTTP/" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-    echo "---" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-  fi 
+#POST
+if [[ $PORT =~ 443 ]]; then
+    echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+    echo -n | tee -a $RUTA/RESUMEN.txt
+else
+    echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+    echo -n | tee -a $RUTA/RESUMEN.txt
+fi
 
 done
 
@@ -309,11 +322,13 @@ echo -e "    Directorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 echo -e "    Directorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo -e "    \e[1;35m[!!] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $DIC_SIZE\e[0m" | tee -a $RUTA/RESUMEN.txt
-###rm -f $RUTA/gobuster_errores.log
-
+echo -e "    \e[1;35m[X] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $DIC_SIZE\e[0m" | tee -a $RUTA/RESUMEN.txt
+if grep -qi "unable to connect" $RUTA/gobuster_errores.log; then
+	echo -e "\t\e[1;31m\t[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
+fi
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32mPruebas iniciales terminadas en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
+
 
 
 ################################################
@@ -328,8 +343,8 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	##########################
 	#   IDENTYWAF
 	##########################
-	echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m🧩 nmap para TCP allports y detección de versiones\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -n | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m🧩 Detección avanzada de WAF con identYwaf\e[0m" | tee -a $RUTA/RESUMEN.txt
 	python3 /opt/identYwaf/identYwaf.py --random-agent $SITIO | grep '[x]\|[+]\|[=]' | grep -v " signature: \| results: " | cut -d ' ' -f2- | sed 's/^/\t/' | tee $RUTA/identYwaf.txt | tee -a $RUTA/RESUMEN.txt
 	
 
@@ -358,7 +373,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	if [[ $HTTP = "https" ]]; then
 		echo | tee -a $RUTA/RESUMEN.txt
 		echo -e "\e[32m🧩 Verificando configuración SSL\e[0m" | tee -a $RUTA/RESUMEN.txt
-		/opt/testssl.sh/testssl.sh --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36" --protocols --vulnerable --quiet $SITIO > $RUTA/SSL.txt
+		/opt/testssl.sh/testssl.sh --user-agent "$(random_user_agent)" --protocols --vulnerable --quiet $SITIO > $RUTA/SSL.txt
 		echo | openssl s_client -connect ${SITIO}:443 2>/dev/null | openssl x509 -noout -dates -issuer | grep -i "notAfter\|issuer" | tac | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 		grep -v "(OK)" $RUTA/SSL.txt | grep -v "not offered" | tee -a $RUTA/RESUMEN.txt
   fi	
