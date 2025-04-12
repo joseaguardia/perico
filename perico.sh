@@ -196,6 +196,60 @@ else
 	echo -e "\t\e[1;31m[!] No se han encontrado puertos abiertos\e[0m" | tee -a $RUTA/RESUMEN.txt
 fi
 
+
+
+##########################
+#   curl 
+##########################
+
+echo | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m🧩 Sacando cabeceras y estados con curl\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo "." > $RUTA/curl.txt
+
+CURL_TEST(){
+	PROTOCOL="http"
+	[[ $PORT =~ 443 ]] && PROTOCOL="https"
+
+	CURL_TEST_RESPONSE=$(curl -A \"$(random_user_agent)\" --max-time 10 -X $1 -kLIs $PROTOCOL://$SITIO:$PORT )
+
+	if [[ $CURL_TEST_RESPONSE =~ "Connection timed out after" ]]; then
+	 	echo -e "\t$SITIO:$PORT $1 - Connection timed out"
+	else
+		echo -e "\t$SITIO:$PORT\t$1 \t$CURL_TEST_RESPONSE" | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//' | sed -E 's/ ([0-9]{3}) / \x1b[32m\1\x1b[0m /g' | tee -a $RUTA/curl.txt | tee -a $RUTA/RESUMEN.txt
+		echo " " | tee -a $RUTA/curl.txt | tee -a $RUTA/RESUMEN.txt
+	fi
+}
+
+grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "httpd" | cut -d '/' -f1 | while read PORT; do
+
+	if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+		continue
+	else	
+		CURL_TEST GET
+		CURL_TEST POST
+	fi
+
+#GET
+# if [[ $PORT =~ 443 ]]; then
+#     echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+#     echo -n | tee -a $RUTA/RESUMEN.txt
+# else
+#     echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+#     echo -n | tee -a $RUTA/RESUMEN.txt
+# fi 
+
+# #POST
+# if [[ $PORT =~ 443 ]]; then
+#     echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+#     echo -n | tee -a $RUTA/RESUMEN.txt
+# else
+    #  echo -e "\t\e[32mPOST\e[0m http ://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
+#     echo -n | tee -a $RUTA/RESUMEN.txt
+# fi
+
+done
+
+
 ##########################
 #   wafw00f
 ##########################
@@ -244,9 +298,11 @@ fi
 #   cmseek
 ##########################
 echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m🧩 Detectando CMS con cmseek\e[0m" | tee -a $RUTA/RESUMEN.txt
+echo -e "\e[32m🧩 Detectando tipo de CMS con cmseek\e[0m" | tee -a $RUTA/RESUMEN.txt
 cmseek --random-agent --batch --follow-redirect --url ${HTTP}://$SITIO >/dev/null
 cat /usr/share/cmseek/Result/${SITIO}/cms.json | jq | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt $RUTA/cmseek.txt
+# Guardamos el tipo de CMS en una variable
+CMS=$(jq -r '.cms_id' /usr/share/cmseek/Result/${SITIO}/cms.json | tr '[:upper:]' '[:lower:]')
 rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 
 
@@ -261,36 +317,10 @@ if [[ $CURL_RESPONSE =~ 404 ]] || [[ $CURL_RESPONSE =~ 403 ]] || [[ $CURL_RESPON
   
 else  
  	echo $CURL_RESPONSE | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks > $RUTA/robots.txt
 
 fi
 
-##########################
-#   curl 
-##########################
-echo | tee -a $RUTA/RESUMEN.txt
-echo -e "\e[32m🧩 Sacando cabeceras y estados con curl\e[0m" | tee -a $RUTA/RESUMEN.txt
-echo "." > $RUTA/curl.txt
-grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "httpd" | cut -d '/' -f1 | while read PORT; do
-
-#GET
-if [[ $PORT =~ 443 ]]; then
-    echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-    echo -n | tee -a $RUTA/RESUMEN.txt
-else
-    echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-    echo -n | tee -a $RUTA/RESUMEN.txt
-fi 
-
-#POST
-if [[ $PORT =~ 443 ]]; then
-    echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-    echo -n | tee -a $RUTA/RESUMEN.txt
-else
-    echo -e "\t\e[32mPOST\e[0m http://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-    echo -n | tee -a $RUTA/RESUMEN.txt
-fi
-
-done
 
 
 ##########################
@@ -326,6 +356,23 @@ echo -e "    \e[1;35m[X] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log
 if grep -qi "unable to connect" $RUTA/gobuster_errores.log; then
 	echo -e "\t\e[1;31m\t[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
 fi
+
+if grep -qi "the server returns a status code that matches the provided options for non existing urls" $RUTA/gobuster_errores.log; then
+	echo -e "\t\e[1;31m\t[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m🧩 GOBUSTER: parece que todo responde con el mismo código, lanzo de nuevo pero sin 30x\e[0m"
+	cat gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
+	echo " " | tee -a $RUTA/RESUMEN.txt 
+elif grep -iq "Client.Timeout exceeded while awaiting headers" $RUTA/gobuster_errores.log; then
+	echo -e "\t\e[1;31m\t[!] Detectados $(grep -ic "Client.Timeout exceeded while awaiting headers" $RUTA/gobuster_errores.log) timeouts\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo " " | tee -a $RUTA/RESUMEN.txt 	
+fi
+
+
+
+
+
+
+
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32mPruebas iniciales terminadas en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
 
