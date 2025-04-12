@@ -180,6 +180,17 @@ if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https" ]]; then
 		echo "CN         ${SUBJECT_CN:-No disponible}" | sed 's/^/\t/'  | tee -a $RUTA/RESUMEN.txt
 		echo "NotAfter:  ${END_DATE_FORMATTED:-No disponible} (${DAYS_LEFT}days)" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	fi
+
+	echo " " | tee -a $RUTA/RESUMEN.txt
+	echo -e "\tSSL Procols:" | tee -a $RUTA/RESUMEN.txt
+	for SSL_PROTO in "  ssl2" "  ssl3" "  tls1" "tls1_1" "tls1_2" "tls1_3"; do
+    if echo | openssl s_client -$SSL_PROTO -connect $1:443 2>/dev/null | grep -iq "Cipher is"; then
+	echo -e "\t${SSL_PROTO^^//_/.}: Enabled" | tee -a $RUTA/RESUMEN.txt
+    else
+	echo -e "\t${SSL_PROTO^^//_/.}: Disable" | tee -a $RUTA/RESUMEN.txt
+    fi
+	done
+
 fi
 
 
