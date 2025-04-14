@@ -30,6 +30,15 @@ if [ ! -f /root/.first_run ]; then
     echo "🧩 Cloning and Installing identYwaf..."
     cd /opt && git clone --depth 1 --quiet  https://github.com/stamparm/identYwaf
 
+    #Clone and configure owasp-zap proxy
+    # apt install python3-pip -y
+    # pip3 install --break-system-packages --root-user-action ignore --upgrade setuptools zaproxy pyyaml > /dev/null
+    # ln -s /usr/bin/python3 /usr/bin/python
+    # git clone https://github.com/zaproxy/zaproxy.git
+    # cd /opt/zaproxy
+    # find /opt/zaproxy/ -mindepth 1 !  -path "/opt/zaproxy/docker*" -exec rm -rf {} \;
+
+
     # Configure wordlists
     echo "🧩 Cloning wordlists from SecLists..."
     rm -rf /usr/share/wordlists

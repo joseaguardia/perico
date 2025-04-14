@@ -182,14 +182,41 @@ if ! [[ $SITIO =~ $IP ]] && [[ $HTTP = "https" ]]; then
 	fi
 
 	echo " " | tee -a $RUTA/RESUMEN.txt
-	echo -e "\tSSL Procols:" | tee -a $RUTA/RESUMEN.txt
-	for SSL_PROTO in "  ssl2" "  ssl3" "  tls1" "tls1_1" "tls1_2" "tls1_3"; do
-    if echo | openssl s_client -$SSL_PROTO -connect $1:443 2>/dev/null | grep -iq "Cipher is"; then
-	echo -e "\t${SSL_PROTO^^//_/.}: Enabled" | tee -a $RUTA/RESUMEN.txt
-    else
-	echo -e "\t${SSL_PROTO^^//_/.}: Disable" | tee -a $RUTA/RESUMEN.txt
-    fi
-	done
+	echo -e "\tSSL Protocols detection:" | tee -a $RUTA/RESUMEN.txt
+
+	# Ejecutar nmap y guardar la salida
+OUTPUT=$(nmap --script ssl-enum-ciphers -Pn -p 443 $SITIO 2>/dev/null)
+
+# Lista de protocolos que nos interesa comprobar
+PROTOCOLS=("SSLv2" "SSLv3" "TLSv1.0" "TLSv1.1" "TLSv1.2" "TLSv1.3")
+
+FILTERED=false
+
+# Buscar en la salida si están presentes
+for PROTO in "${PROTOCOLS[@]}"; do
+
+	if echo "$OUTPUT" | grep -q "filtered"; then
+		FILTERED=true
+	else
+
+		if echo "$OUTPUT" | grep -q "$PROTO:"; then
+			# Si hay cifrados listados bajo el protocolo, está habilitado
+			if echo "$OUTPUT" | grep -A 5 "$PROTO:" | grep -q "ciphers"; then
+					echo -e "\t[✓] $PROTO \tENABLED " | tee -a $RUTA/RESUMEN.txt
+			else
+					echo -e "\t[✗] $PROTO \tDISABLED" | tee -a $RUTA/RESUMEN.txt
+			fi
+		else
+			echo -e "\t[✗] $PROTO \tNOT DETECTED" | tee -a $RUTA/RESUMEN.txt
+		fi
+	fi
+done
+
+if [ $FILTERED ]; then
+	echo -e "\t\e[1;31m[!] No cipher detected. The site might be blocking us.\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "$OUTPUT " | grep "filtered" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	
+fi
 
 fi
 
@@ -239,24 +266,6 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep "http" | grep -v "
 		CURL_TEST GET
 		CURL_TEST POST
 	fi
-
-#GET
-# if [[ $PORT =~ 443 ]]; then
-#     echo -e "\t\e[32mGET\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-#     echo -n | tee -a $RUTA/RESUMEN.txt
-# else
-#     echo -e "\t\e[32mGET\e[0m http://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X GET -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-#     echo -n | tee -a $RUTA/RESUMEN.txt
-# fi 
-
-# #POST
-# if [[ $PORT =~ 443 ]]; then
-#     echo -e "\t\e[32mPOST\e[0m https://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs https://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-#     echo -n | tee -a $RUTA/RESUMEN.txt
-# else
-    #  echo -e "\t\e[32mPOST\e[0m http ://${SITIO}:\e[32m$PORT\e[0m \t\t-> $(curl -A "$(random_user_agent)" --max-time 10 -X POST -kLIs http://$SITIO:$PORT | grep HTTP/ | tr -d '\r' | awk 'ORS=" -> " {print}' | sed 's/-> $//')" | tee -a $RUTA/RESUMEN.txt
-#     echo -n | tee -a $RUTA/RESUMEN.txt
-# fi
 
 done
 
@@ -357,7 +366,7 @@ DIC_SIZE=$(wc -l $WORDLIST | cut -d ' ' -f1)
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m🧩 Fuzzing de directorios con gobuster DIR usando diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev) - $DIC_SIZE entradas\e[0m" | tee -a $RUTA/RESUMEN.txt
-gobuster dir --timeout 3s --threads 10 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2>$RUTA/gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
+gobuster dir -r --timeout 3s --threads 10 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2>$RUTA/gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
 echo " " | tee -a $RUTA/RESUMEN.txt
 echo -e "    Directorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
