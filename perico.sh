@@ -111,7 +111,7 @@ ABUSESCORE=$(echo "$ABUSEIPDB" | jq '.data.abuseConfidenceScore')
 ABUSEREPORTS=$(echo "$ABUSEIPDB" | jq '.data.totalReports')
 
 echo -e "
-AbuseIPDB information:
+Attacker (this machine) AbuseIPDB information:
 \t[+] My Public IP: \t$OUR_PUBLIC_IP
 \t[+] Abuse Score: \t\e[1;35m$ABUSESCORE% \e[0m
 \t[+] Total Reports: \t$ABUSEREPORTS times"
@@ -146,7 +146,10 @@ echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m🧩 Obteniendo información de la IP (${IPSITIO})\e[0m" | tee -a $RUTA/RESUMEN.txt
 curl -s "https://ipinfo.io/${IPSITIO}" > $RUTA/IP_info-${IPSITIO}.txt
 echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .country + ")"')" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-
+echo | tee -a $RUTA/RESUMEN.txt
+echo -e "\trDNS from server hosting the site:" | tee -a $RUTA/RESUMEN.txt
+dig +short -x "$(dig +short $SITIO | tail -n1)" | tr -d '\n' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo | tee -a $RUTA/RESUMEN.txt
 
 ##########################
 #   SSL Basic info
@@ -286,7 +289,6 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v htt
 		fi
 	fi
 done
-
 
 
 ##########################
@@ -479,24 +481,15 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 
 
 	##########################
-	#   hakrawler
-	##########################
-	echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m🧩 Buscando enlaces fuzzleables con hakrawler\e[0m" | tee -a $RUTA/RESUMEN.txt
-	echo https://$SITIO | hakrawler -d 1 -u | grep -E "^https://$SITIO" | grep "?" | grep "=" > $RUTA/hakrawler_fuzzeables.txt
-	echo -e "\tEnlaces fuzzleables encontrados: $(wc -l  $RUTA/hakrawler_fuzzeables.txt)" | tee -a $RUTA/RESUMEN.txt
-	
-
-	##########################
 	#   gobuster DNS
 	##########################
 	if ! [[ $SITIO =~ $IP ]]; then
 	  echo | tee -a $RUTA/RESUMEN.txt
-		WORDLIST='/usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt'
+		WORDLIST='/usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-110000.txt'
+		          
 		DIC_SIZE=$(wc -l $WORDLIST | cut -d ' ' -f1)
 	  echo -e "\e[32m🧩 Probando $DIC_SIZE subdominios con gobuster\e[0m" | tee -a $RUTA/RESUMEN.txt
 	  
-	
 	  gobuster dns --no-error --timeout 3s -d $DOMINIO -z -o /tmp/gobuster_subdomains_$SITIO.txt -w $WORDLIST | tail -n1
 	
     echo "" > $RUTA/gobuster_subdomains.txt
@@ -526,7 +519,18 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 
 	rm /tmp/gobuster_subdomains_$SITIO.txt -f
 
+
+
+	##########################
+	#   hakrawler
+	##########################
+	echo | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m🧩 Buscando enlaces fuzzleables con hakrawler\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo https://$SITIO | hakrawler -d 1 -u | grep -E "^https://$SITIO" | grep "?" | grep "=" > $RUTA/hakrawler_fuzzeables.txt
+	echo -e "\tEnlaces fuzzleables encontrados: $(wc -l  $RUTA/hakrawler_fuzzeables.txt)" | tee -a $RUTA/RESUMEN.txt
+
 	
+
 	##########################
 	#   wapiti
 	##########################

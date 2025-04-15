@@ -52,6 +52,8 @@ if [ ! -f /root/.first_run ]; then
     wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
     wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt -O /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt 
     wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
+    wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-110000.txt -O /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-110000.txt
+
 
     echo "cd /root/proyectos_hack/" >> /root/.bashrc
 
