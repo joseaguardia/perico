@@ -15,7 +15,8 @@ if [ ! -f /root/.first_run ]; then
     apt install -y git wget vim jq curl procps netcat-openbsd iproute2 telnet \
         iputils-ping git whois nmap cmseek jq wafw00f gobuster whatweb wpscan \
         theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils > /dev/null
-
+    nmap --script-updatedb
+    
     # Install perico
     echo "🧩 Cloning and Installing perico..."
     cd /opt && git clone --quiet https://github.com/joseaguardia/perico.git

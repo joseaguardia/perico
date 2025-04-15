@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="20250409"
+VERSION="20250415"
 
 clear
 echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO   ##"
@@ -21,8 +21,6 @@ echo -e "\e[0m"
 # Al terminar pregunta si quieres lanzar un escaneo más profundo
 
 #Todo:
-# puntuación en ip abuse db
-# whatweb por cad puerto HTTP
 # owasp-zap cli
 # Preguntar si se quiere pasar gobuster DIR y FUZZ en el resto de subdominios encontrados en la misma máquina
 # XssPy.py o xxser?
@@ -212,7 +210,7 @@ for PROTO in "${PROTOCOLS[@]}"; do
 	fi
 done
 
-if [ $FILTERED ]; then
+if [[ $FILTERED = true ]]; then
 	echo -e "\t\e[1;31m[!] No cipher detected. The site might be blocking us.\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo -e "$OUTPUT " | grep "filtered" | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	
@@ -366,26 +364,38 @@ DIC_SIZE=$(wc -l $WORDLIST | cut -d ' ' -f1)
 
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\e[32m🧩 Fuzzing de directorios con gobuster DIR usando diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev) - $DIC_SIZE entradas\e[0m" | tee -a $RUTA/RESUMEN.txt
-gobuster dir -r --timeout 3s --threads 10 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2>$RUTA/gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
-echo " " | tee -a $RUTA/RESUMEN.txt
-echo -e "    Directorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
-cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo -e "    Directorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
-grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo -e "    \e[1;35m[X] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $DIC_SIZE\e[0m" | tee -a $RUTA/RESUMEN.txt
+
+gobuster dir --follow-redirect --timeout 3s --threads 10 --random-agent -s "200,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2> >(tee "$RUTA/gobuster_errores.log" > /dev/null) | tail -n1
+#| grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
+
+# Si parece que nos han bloqueado
 if grep -qi "unable to connect" $RUTA/gobuster_errores.log; then
 	echo -e "\t\e[1;31m\t[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
 fi
 
+# Si gobuster detecta que todo da un 200, lo lanza de nuevo sin -r
 if grep -qi "the server returns a status code that matches the provided options for non existing urls" $RUTA/gobuster_errores.log; then
-	echo -e "\t\e[1;31m\t[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m🧩 GOBUSTER: parece que todo responde con el mismo código, lanzo de nuevo pero sin 30x\e[0m"
-	cat gobuster_errores.log | grep -v "Timeout:\|Method:\|Status codes:\|Starting gobuster in directory enumeration mode\|\=\=\=\|Gobuster v3.\|by OJ Reeves\|User Agent:\|Threads:"
+	echo " " | tee -a $RUTA/RESUMEN.txt
+	echo -e "\t\e[1;31m[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m🧩 GOBUSTER: parece que todo responde con el mismo código, lanzo de nuevo pero sin 30x\e[0m" | tee -a $RUTA/RESUMEN.txt
+	gobuster dir --timeout 3s --threads 10 --random-agent -s "200,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2> >(tee -a "$RUTA/gobuster_errores.log" >&2) | tail -n1
 	echo " " | tee -a $RUTA/RESUMEN.txt 
 elif grep -iq "Client.Timeout exceeded while awaiting headers" $RUTA/gobuster_errores.log; then
 	echo -e "\t\e[1;31m\t[!] Detectados $(grep -ic "Client.Timeout exceeded while awaiting headers" $RUTA/gobuster_errores.log) timeouts\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo " " | tee -a $RUTA/RESUMEN.txt 	
 fi
+
+
+#Resultados
+echo " " | tee -a $RUTA/RESUMEN.txt
+echo -e "\tDirectorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
+cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo -e "\tDirectorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
+grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo " " | tee -a $RUTA/RESUMEN.txt
+echo -e "\t[x] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $DIC_SIZE\e[0m" | tee -a $RUTA/RESUMEN.txt
+
 
 
 
