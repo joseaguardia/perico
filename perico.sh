@@ -280,7 +280,7 @@ grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v htt
 		#Comprobamos si ha dado error
 		if [ -s $RUTA/wafw00f_${SITIO}-$PORT.err ]; then
 			echo -e "\t\e[1;31m[!] Error al detectar WAF en el puerto ${PORT}. Puede que nos hayan bloqueado.\e[0m" | tee -a $RUTA/RESUMEN.txt
-			head -n1 $RUTA/wafw00f_${SITIO}-$PORT.err | tee -a $RUTA/RESUMEN.txt
+			head -n1 $RUTA/wafw00f_${SITIO}-$PORT.err | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 		else
 			cat $RUTA/wafw00f*.txt | sed 's/(None)//g' | awk '{gsub(/None/, "\033[32m&\033[0m")}1' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 		fi
@@ -344,12 +344,24 @@ fi
 ##########################
 #   wpscan
 ##########################
-if grep -i "WordPress" $RUTA/whatweb.txt > /dev/null; then
+if grep -qi "WordPress" $RUTA/whatweb.txt; then
   echo | tee -a $RUTA/RESUMEN.txt
-  echo -e "\e[32m🧩 Detectada instalación de wordpress. Pasando wpscan\e[0m" | tee -a $RUTA/RESUMEN.txt
+  echo -e "\e[32m🧩 Detectada instalación de WordPress. Pasando wpscan\e[0m" | tee -a $RUTA/RESUMEN.txt
   wpscan --update > /dev/null
   wpscan --url ${HTTP}://$SITIO --enumerate vp,vt,dbe,cb,u --plugins-detection mixed --random-user-agent -o $RUTA/wpscan.txt --api-token "$WPSCAN_TOKEN"
-  cat wpscan.txt | grep "\[\!\]\|Scan Aborted" | grep -v "The version is out of date" | sed 's/^[[:space:]]*//g' | tr -d '|' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+  #cat $RUTA/wpscan.txt | grep "\[\!\]\|Scan Aborted" | grep -v "The version is out of date" | sed 's/^[[:space:]]*//g' | tr -d '|' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+
+echo -e "\t[+] Vulnerabilities identified:"
+while IFS= read -r line; do
+    if [[ "$line" == *"Unauthenticated"* ]]; then
+        echo -e "\t\e[32m${line}\e[0m" | tee -a $RUTA/RESUMEN.txt
+    else
+        echo -e "\t\e[90m${line}\e[0m" | tee -a $RUTA/RESUMEN.txt
+    fi
+done < "$RUTA/wpscan.txt"
+
+echo -e "\t[+] $(grep 'Elapsed time' $RUTA/wpscan.txt)"
+
 fi
 
 
@@ -370,7 +382,7 @@ gobuster dir --follow-redirect --timeout 3s --threads 10 --random-agent -s "200,
 
 # Si parece que nos han bloqueado
 if grep -qi "unable to connect" $RUTA/gobuster_errores.log; then
-	echo -e "\t\e[1;31m\t[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\t\e[1;31m[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
 fi
 
 # Si gobuster detecta que todo da un 200, lo lanza de nuevo sin -r
@@ -378,7 +390,7 @@ if grep -qi "the server returns a status code that matches the provided options 
 	echo " " | tee -a $RUTA/RESUMEN.txt
 	echo -e "\t\e[1;31m[!] $(cat $RUTA/gobuster_errores.log)\e[0m" | tee -a $RUTA/RESUMEN.txt
 	echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\e[32m🧩 GOBUSTER: parece que todo responde con el mismo código, lanzo de nuevo pero sin 30x\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m🧩 GOBUSTER: parece que todo responde con el mismo código, lanzo de nuevo pero sin --follow-redirect\e[0m" | tee -a $RUTA/RESUMEN.txt
 	gobuster dir --timeout 3s --threads 10 --random-agent -s "200,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_small.txt 2> >(tee -a "$RUTA/gobuster_errores.log" >&2) | tail -n1
 	echo " " | tee -a $RUTA/RESUMEN.txt 
 elif grep -iq "Client.Timeout exceeded while awaiting headers" $RUTA/gobuster_errores.log; then
@@ -396,7 +408,7 @@ grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/
 echo " " | tee -a $RUTA/RESUMEN.txt
 echo -e "\t[x] Errores: $(grep -c '[ERROR]' $RUTA/gobuster_errores.log) / $DIC_SIZE\e[0m" | tee -a $RUTA/RESUMEN.txt
 
-
+cat $RUTA/gobuster_errores.log | tail -n 10 | sed 's/^/\t[!] /' | tee -a $RUTA/RESUMEN.txt
 
 
 
@@ -465,7 +477,16 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	jq . $RUTA/theHarvester.json > $RUTA/theHarvester_pretty.json && rm -f $RUTA/theHarvester.json && rm -f $RUTA/theHarvester.xml
 	cat theHarvester_pretty.json | jq '.emails, .hosts' | grep -v "\[\|\]" | tr -d '"' | sed 's/^[[:space:]]*//g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
+
+	##########################
+	#   hakrawler
+	##########################
+	echo | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[32m🧩 Buscando enlaces fuzzleables con hakrawler\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo https://$SITIO | hakrawler -d 1 -u | grep -E "^https://$SITIO" | grep "?" | grep "=" > $RUTA/hakrawler_fuzzeables.txt
+	echo -e "\tEnlaces fuzzleables encontrados: $(wc -l  $RUTA/hakrawler_fuzzeables.txt)" | tee -a $RUTA/RESUMEN.txt
 	
+
 	##########################
 	#   gobuster DNS
 	##########################
@@ -524,7 +545,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo -e "\e[32m🧩 Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev) - $DIC_SIZE entradas\e[0m" | tee -a $RUTA/RESUMEN.txt
-	gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,204,302,307,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
+	gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
 	echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 	cat $RUTA/gobuster_dir_big.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 	echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt

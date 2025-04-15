@@ -13,6 +13,7 @@ services:
     environment:
       - WPSCAN_TOKEN=${WPSCAN_TOKEN}
       - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
       - TZ=Europe/Madrid
     entrypoint: ./entrypoint.sh
     command: /bin/bash

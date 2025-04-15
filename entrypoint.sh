@@ -16,7 +16,7 @@ if [ ! -f /root/.first_run ]; then
         iputils-ping git whois nmap cmseek jq wafw00f gobuster whatweb wpscan \
         theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils > /dev/null
     nmap --script-updatedb
-    
+
     # Install perico
     echo "🧩 Cloning and Installing perico..."
     cd /opt && git clone --quiet https://github.com/joseaguardia/perico.git
@@ -29,7 +29,11 @@ if [ ! -f /root/.first_run ]; then
     
     #Install identyWAF
     echo "🧩 Cloning and Installing identYwaf..."
-    cd /opt && git clone --depth 1 --quiet  https://github.com/stamparm/identYwaf
+    cd /opt && git clone --depth 1 --quiet https://github.com/stamparm/identYwaf
+
+    # Install hakrawler
+    echo "🧩 Installing hakrawler..."
+    apt install -y hakrawler
 
     #Clone and configure owasp-zap proxy
     # apt install python3-pip -y
