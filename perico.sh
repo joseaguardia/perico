@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="20250415"
+VERSION="20250420"
 
 clear
 echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO   ##"
@@ -21,6 +21,8 @@ echo -e "\e[0m"
 # Al terminar pregunta si quieres lanzar un escaneo más profundo
 
 #Todo:
+# Preguntar Eliminar carpeta
+# En nmap, convertir de ssl|http a https
 # owasp-zap cli
 # Preguntar si se quiere pasar gobuster DIR y FUZZ en el resto de subdominios encontrados en la misma máquina
 # XssPy.py o xxser?
@@ -41,6 +43,16 @@ random_user_agent() {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.106 Safari/537.36 Edg/123.0.2420.65"
 }
 
+function confirmar_eliminacion {
+    echo -e "\e[1;35m[???] ¿Quieres eliminar la carpeta ${RUTA}?\e[0m"
+    read -p "[y/N] " ELIMINAR
+    if [[ $ELIMINAR = "y" ]]; then
+        rm -rf "$RUTA"
+        echo -e "\e[1;35m[✔] Carpeta eliminada\e[0m"
+    fi
+}
+
+trap confirmar_eliminacion SIGINT
 
 #Contador de tiempo a cero
 SECONDS=0
@@ -112,7 +124,7 @@ ABUSEREPORTS=$(echo "$ABUSEIPDB" | jq '.data.totalReports')
 
 echo -e "
 Attacker (this machine) AbuseIPDB information:
-\t[+] My Public IP: \t$OUR_PUBLIC_IP
+\t[+] My Public IP: \t$OUR_PUBLIC_IP ($(dig +short -x "$(dig +short $OUR_PUBLIC_IP | tail -n1)"))
 \t[+] Abuse Score: \t\e[1;35m$ABUSESCORE% \e[0m
 \t[+] Total Reports: \t$ABUSEREPORTS times"
 
@@ -149,7 +161,9 @@ echo "$(cat $RUTA/IP_info-${IPSITIO}.txt  | jq '.org + " - " + .city + " (" + .c
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\trDNS from server hosting the site:" | tee -a $RUTA/RESUMEN.txt
 dig +short -x "$(dig +short $SITIO | tail -n1)" | tr -d '\n' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-echo | tee -a $RUTA/RESUMEN.txt
+echo "" | tee -a $RUTA/RESUMEN.txt
+
+
 
 ##########################
 #   SSL Basic info
@@ -232,7 +246,14 @@ nmap -T3 -sS --open -n -Pn -sV -oG $RUTA/nmap_TCP_top1000_grepeable.txt -oN $RUT
 if grep -q "Ports:" $RUTA/nmap_TCP_top1000_grepeable.txt ; then
 	cat $RUTA/nmap_TCP_top1000_grepeable.txt | grep "Ports:" | sed 's/.*Ports: //g' | tr ',' '\n' | sed 's/^ //' | sed 's/\//\t/g' | sed 's/^/\t/g' | awk '$2=="open" && $3=="tcp" { printf "\t\033[32m%-5s\033[0m %-12s %s\n", $1, $4, $5 FS $6 }' | tee -a $RUTA/RESUMEN.txt
 else
-	echo -e "\t\e[1;31m[!] No se han encontrado puertos abiertos\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\t\e[1;31m[!] No se han encontrado puertos abiertos. Cancelamos el escaneo\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\e[1;35m[???] ¿Quieres eliminar la carpeta ${RUTA}?\e[0m"
+	read -p "[y/N] " ELIMINAR
+	if [[ $ELIMINAR = "y" ]]; then
+		rm -rf $RUTA
+		echo -e "\e[1;35m[✔] Carpeta eliminada\e[0m"
+	fi
+	exit 1
 fi
 
 
@@ -279,7 +300,7 @@ echo -e "\e[32m🧩 Detectando WAF con wafw00f (solo puertos *443*)\e[0m" | tee 
 grep "Ports: " $RUTA/nmap_*grepeable.txt  | tr ' ' \\n | grep http | grep -v httpd | cut -d '/' -f1 | sort -u | while read PORT; do
   if [[ $PORT =~ 443 ]]; then
   	wafw00f -o $RUTA/wafw00f_${SITIO}_puerto$PORT.txt https://$SITIO:$PORT > /dev/null 2>$RUTA/wafw00f_${SITIO}-$PORT.err
-  	echo -e "\n" >> $RUTA/wafw00f_${SITIO}_$PORT.txt  
+  	#echo -e "\n" >> $RUTA/wafw00f_${SITIO}_$PORT.txt  
 		#Comprobamos si ha dado error
 		if [ -s $RUTA/wafw00f_${SITIO}-$PORT.err ]; then
 			echo -e "\t\e[1;31m[!] Error al detectar WAF en el puerto ${PORT}. Puede que nos hayan bloqueado.\e[0m" | tee -a $RUTA/RESUMEN.txt
@@ -336,8 +357,8 @@ if [[ $CURL_RESPONSE =~ 404 ]] || [[ $CURL_RESPONSE =~ 403 ]] || [[ $CURL_RESPON
 	echo -e "\t\e[1;31m[!] Archivo robots.txt no encontrado o tiene captcha\e[0m" | tee -a $RUTA/RESUMEN.txt
   
 else  
- 	echo $CURL_RESPONSE | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-	curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks > $RUTA/robots.txt
+ 	#echo $CURL_RESPONSE | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks | grep . | sed 's/^/\t/' | tee -a $RUTA/robots.txt | tee -a $RUTA/RESUMEN.txt
 
 fi
 
@@ -602,6 +623,15 @@ else
   echo -e "\e[1;35m✨ Escaneo inicial terminado ✨\e[0m"
   #Eliminamos archivos que ya no son necesarios:
   rm -f $RUTA/nmap_*_grepeable.txt
-  exit 0
 
 fi
+
+
+echo -e "\e[1;35m[???] ¿Quieres eliminar la carpeta ${RUTA}?\e[0m"
+read -p "[y/N] " ELIMINAR
+if [[ $ELIMINAR = "y" ]]; then
+		rm -rf $RUTA
+		echo -e "\e[1;35m[✔] Carpeta eliminada\e[0m"
+fi
+
+exit 0
