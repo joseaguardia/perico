@@ -14,7 +14,7 @@ if [ ! -f /root/.first_run ]; then
     apt update -qq
     apt install -y git wget vim jq curl procps netcat-openbsd iproute2 telnet \
         iputils-ping git whois nmap cmseek jq wafw00f gobuster whatweb wpscan \
-        theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils > /dev/null
+        theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils exploitdb > /dev/null
     nmap --script-updatedb
 
     # Install perico
