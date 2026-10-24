@@ -5,11 +5,16 @@ services:
     stdin_open: true
     tty: true
     cap_add:
+      # NET_RAW is required by nmap SYN/UDP scans. Docker grants it by default,
+      # but podman does not, so it must be declared explicitly for portability.
+      - NET_RAW
       - NET_ADMIN
       - SYS_MODULE
     volumes:
-      - ./perico:/root/proyectos_hack
-      - ./entrypoint.sh:/entrypoint.sh
+      # :Z relabels bind mounts for SELinux (required on Fedora/podman) so the
+      # container (container_t) can read/execute files from the user's home
+      - ./perico:/root/proyectos_hack:Z
+      - ./entrypoint.sh:/entrypoint.sh:Z
     environment:
       - WPSCAN_TOKEN=${WPSCAN_TOKEN}
       - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
