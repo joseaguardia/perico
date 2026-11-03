@@ -427,6 +427,7 @@ fi
 echo " " | tee -a $RUTA/RESUMEN.txt
 echo -e "\tDirectorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\tDirectorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 echo " " | tee -a $RUTA/RESUMEN.txt
@@ -574,6 +575,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
 	echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
 	cat $RUTA/gobuster_dir_big.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	echo | tee -a $RUTA/RESUMEN.txt
 	echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 	grep "Status: 401" gobuster_dir_big.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
 
