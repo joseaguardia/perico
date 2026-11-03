@@ -217,12 +217,12 @@ for PROTO in "${PROTOCOLS[@]}"; do
 		if echo "$OUTPUT" | grep -q "$PROTO:"; then
 			# Si hay cifrados listados bajo el protocolo, está habilitado
 			if echo "$OUTPUT" | grep -A 5 "$PROTO:" | grep -q "ciphers"; then
-					echo -e "\t[✓] $PROTO \tENABLED " | tee -a $RUTA/RESUMEN.txt
+					echo -e "\t\e[32m[✓]\e[0m $PROTO" | tee -a $RUTA/RESUMEN.txt
 			else
-					echo -e "\t[✗] $PROTO \tDISABLED" | tee -a $RUTA/RESUMEN.txt
+					echo -e "\t\e[1;31m[✗]\e[0m $PROTO" | tee -a $RUTA/RESUMEN.txt
 			fi
 		else
-			echo -e "\t[✗] $PROTO \tNOT DETECTED" | tee -a $RUTA/RESUMEN.txt
+			echo -e "\t\e[1;31m[✗]\e[0m $PROTO" | tee -a $RUTA/RESUMEN.txt
 		fi
 	fi
 done
