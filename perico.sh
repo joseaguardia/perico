@@ -44,12 +44,21 @@ random_user_agent() {
 }
 
 function confirmar_eliminacion {
-    echo -e "\e[1;35m[???] ¿Quieres eliminar la carpeta ${RUTA}?\e[0m"
-    read -p "[y/N] " ELIMINAR
-    if [[ $ELIMINAR = "y" ]]; then
-        rm -rf "$RUTA"
-        echo -e "\e[1;35m[✔] Carpeta eliminada\e[0m"
+    # Ignore further Ctrl+C while we handle this one, so pressing it again
+    # during the prompt can't re-enter the handler or leave us stuck.
+    trap '' SIGINT
+    echo
+    echo -e "\e[1;35m[!] Escaneo interrumpido (Ctrl+C)\e[0m"
+    if [[ -n $RUTA && -d $RUTA ]]; then
+        echo -e "\e[1;35m[???] ¿Quieres eliminar la carpeta ${RUTA}?\e[0m"
+        read -r -p "[y/N] " ELIMINAR
+        if [[ $ELIMINAR = "y" || $ELIMINAR = "Y" ]]; then
+            rm -rf "$RUTA"
+            echo -e "\e[1;35m[✔] Carpeta eliminada\e[0m"
+        fi
     fi
+    # Stop the script instead of resuming the scan where it was interrupted.
+    exit 130
 }
 
 trap confirmar_eliminacion SIGINT
@@ -426,7 +435,7 @@ fi
 #Resultados
 echo " " | tee -a $RUTA/RESUMEN.txt
 echo -e "\tDirectorios \e[32mencontrados\e[0m (Código 200):"  | tee -a $RUTA/RESUMEN.txt
-cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+cat $RUTA/gobuster_dir_small.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed $'s/^/\t\033[1;35m/;s/$/\033[0m/' | tee -a $RUTA/RESUMEN.txt
 echo | tee -a $RUTA/RESUMEN.txt
 echo -e "\tDirectorios \e[32mprotegidos\e[0m con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 grep "Status: 401" gobuster_dir_small.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
@@ -574,7 +583,7 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
 	echo -e "\e[32m🧩 Pasando gobuster DIR con diccionario $(rev <<<$WORDLIST | cut -d '/' -f1 | rev) - $DIC_SIZE entradas\e[0m" | tee -a $RUTA/RESUMEN.txt
 	gobuster dir --no-error --timeout 3s --threads 15 --random-agent -s "200,401" -b "" -w $WORDLIST -u ${HTTP}://$SITIO -o $RUTA/gobuster_dir_big.txt | tail -n1
 	echo "    Directorios encontrados (Código 200):"  | tee -a $RUTA/RESUMEN.txt
-	cat $RUTA/gobuster_dir_big.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
+	cat $RUTA/gobuster_dir_big.txt | grep -v "(Status: 301)\|(Status: 302)\|(Status: 401)" | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | fold -w 135 | sed $'s/^/\t\033[1;35m/;s/$/\033[0m/' | tee -a $RUTA/RESUMEN.txt
 	echo | tee -a $RUTA/RESUMEN.txt
 	echo "    Directorios protegidos con contraseña (Código 401):"  | tee -a $RUTA/RESUMEN.txt
 	grep "Status: 401" gobuster_dir_big.txt | awk '{print $1}' | sed ':a;N;$!ba;s/\n/, /g' | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
