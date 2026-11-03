@@ -270,7 +270,7 @@ CURL_TEST(){
 	PROTOCOL="http"
 	[[ $PORT =~ 443 ]] && PROTOCOL="https"
 
-	CURL_TEST_RESPONSE=$(curl -A \"$(random_user_agent)\" --max-time 10 -X $1 -kLIs $PROTOCOL://$SITIO:$PORT )
+	CURL_TEST_RESPONSE=$(curl -A "$(random_user_agent)" --max-time 10 -X $1 -kLIs $PROTOCOL://$SITIO:$PORT )
 
 	if [[ $CURL_TEST_RESPONSE =~ "Connection timed out after" ]]; then
 	 	echo -e "\t$SITIO:$PORT $1 - Connection timed out"
@@ -351,15 +351,16 @@ rm -f /usr/share/cmseek/Result/${SITIO}/cms.json
 #   robots.txt 
 ##########################
 echo -e "\e[32m🧩 Descargando archivo robots.txt\e[0m" | tee -a $RUTA/RESUMEN.txt
-CURL_RESPONSE=$(curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks ) > /dev/null
-if [[ $CURL_RESPONSE =~ 404 ]] || [[ $CURL_RESPONSE =~ 403 ]] || [[ $CURL_RESPONSE =~ (?i)captcha ]] || [[ -z $CURL_RESPONSE ]]; then
+# Single request capturing both the body and the final HTTP status code (-w),
+# so detection relies on the real status, not on grepping the body.
+ROBOTS=$(curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks -w '\n%{http_code}')
+ROBOTS_CODE=$(tail -n1 <<<"$ROBOTS")
+ROBOTS_BODY=$(sed '$d' <<<"$ROBOTS")
+if [[ $ROBOTS_CODE != 200 ]] || [[ -z $ROBOTS_BODY ]] || grep -qi captcha <<<"$ROBOTS_BODY"; then
   echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\t\e[1;31m[!] Archivo robots.txt no encontrado o tiene captcha\e[0m" | tee -a $RUTA/RESUMEN.txt
-  
-else  
- 	#echo $CURL_RESPONSE | grep . | sed 's/^/\t/' | tee -a $RUTA/RESUMEN.txt
-	curl -A "$(random_user_agent)" --max-time 15 ${HTTP}://$SITIO/robots.txt -Lks | grep . | sed 's/^/\t/' | tee -a $RUTA/robots.txt | tee -a $RUTA/RESUMEN.txt
-
+	echo -e "\t\e[1;31m[!] Archivo robots.txt no encontrado o tiene captcha (HTTP ${ROBOTS_CODE})\e[0m" | tee -a $RUTA/RESUMEN.txt
+else
+	grep . <<<"$ROBOTS_BODY" | sed 's/^/\t/' | tee -a $RUTA/robots.txt | tee -a $RUTA/RESUMEN.txt
 fi
 
 
@@ -613,7 +614,6 @@ if [[ $CONTINUAR = "Y" || $CONTINUAR = "y" ]]; then
   echo | tee -a $RUTA/RESUMEN.txt
   echo -e "\e[1;35mEscaneo profundo terminado en $(date -u -d @${SECONDS} +'%Hh:%Mm')\e[0m" | tee -a $RUTA/RESUMEN.txt
 
-  rm -f $RUTA/nmap_*_grepeable.txt
   echo
   echo -e "\e[1;35m✨ Escaneo avanzado terminado ✨\e[0m"
 

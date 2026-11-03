@@ -18,6 +18,26 @@ download() {
     return 1
 }
 
+# Run a slow command showing a spinner while it works. Only animates when
+# stdout is a real terminal; under `docker compose logs` it prints one plain
+# line instead of spamming carriage returns. The command's stdout is hidden;
+# set -e still aborts the script if the command fails.
+spin() {
+    local msg="$1"; shift
+    if [ -t 1 ]; then
+        "$@" >/dev/null 2>&1 &
+        local pid=$! frames='|/-\' i=0
+        while kill -0 "$pid" 2>/dev/null; do
+            printf '\r%s %s' "$msg" "${frames:i++%4:1}"
+            sleep 0.3
+        done
+        if wait "$pid"; then printf '\r%s ✅\n' "$msg"; else printf '\r%s ❌\n' "$msg"; return 1; fi
+    else
+        echo "$msg ..."
+        "$@" >/dev/null
+    fi
+}
+
 # Initial configuration only on first run
 if [ ! -f /root/.first_run ]; then
     echo -n
@@ -26,30 +46,28 @@ if [ ! -f /root/.first_run ]; then
     echo "kali-docker" > /etc/hostname
     mkdir -p /root/proyectos_hack
     
-    echo "🧩 Updating and installing packages..."
-    apt update -qq
-    apt install -y git wget vim jq curl procps netcat-openbsd iproute2 telnet \
-        iputils-ping git whois nmap cmseek jq wafw00f gobuster whatweb wpscan \
-        theharvester nikto wapiti wireguard bind9-dnsutils vim bsdmainutils exploitdb > /dev/null
-    nmap --script-updatedb
+    spin "🧩 Updating package lists" apt update -qq
+    spin "🧩 Installing packages (this takes a while)" apt install -y git wget vim jq curl procps netcat-openbsd iproute2 telnet \
+        iputils-ping whois nmap cmseek wafw00f gobuster whatweb wpscan \
+        theharvester nikto wapiti wireguard bind9-dnsutils bsdmainutils exploitdb
+    spin "🧩 Updating nmap scripts" nmap --script-updatedb
 
     # Install perico
-    echo "🧩 Cloning and Installing perico..."
-    cd /opt && git clone --quiet https://github.com/joseaguardia/perico.git
+    cd /opt
+    spin "🧩 Cloning perico" git clone --quiet https://github.com/joseaguardia/perico.git
     chmod +x /opt/perico/perico.sh
     ln -s /opt/perico/perico.sh /usr/local/bin/perico
-    
+
     # Install testssl.sh
-    echo "🧩 Cloning and Installing testssl..."
-    cd /opt && git clone --quiet https://github.com/drwetter/testssl.sh.git
-    
-    #Install identyWAF
-    echo "🧩 Cloning and Installing identYwaf..."
-    cd /opt && git clone --depth 1 --quiet https://github.com/stamparm/identYwaf
+    cd /opt
+    spin "🧩 Cloning testssl" git clone --quiet https://github.com/drwetter/testssl.sh.git
+
+    # Install identYwaf
+    cd /opt
+    spin "🧩 Cloning identYwaf" git clone --depth 1 --quiet https://github.com/stamparm/identYwaf
 
     # Install hakrawler
-    echo "🧩 Installing hakrawler..."
-    apt install -y hakrawler
+    spin "🧩 Installing hakrawler" apt install -y hakrawler
 
     #Clone and configure owasp-zap proxy
     # apt install python3-pip -y
@@ -80,12 +98,9 @@ if [ ! -f /root/.first_run ]; then
 
 else
     # Update repos on every startup
-    echo "🧩 Updating perico..."
-    cd /opt/perico && git pull
-    echo "🧩 Updating testssl..."
-    cd /opt/testssl.sh && git pull
-    echo "🧩 Updating identYwaf..."
-    cd /opt/identYwaf && git pull
+    cd /opt/perico && spin "🧩 Updating perico" git pull
+    cd /opt/testssl.sh && spin "🧩 Updating testssl" git pull
+    cd /opt/identYwaf && spin "🧩 Updating identYwaf" git pull
 fi
 
 # Execute main command (bash by default)
