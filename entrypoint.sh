@@ -1,12 +1,28 @@
 #!/bin/bash
 set -e
 
+# Download a file and fail loudly if it is missing or empty, retrying a few
+# times so a flaky first boot (slow network, container restart) doesn't leave
+# a half-installed container marked as "done".
+download() {
+    local url="$1" dest="$2" attempt
+    for attempt in 1 2 3; do
+        if wget -q "$url" -O "$dest" && [ -s "$dest" ]; then
+            return 0
+        fi
+        echo "⚠️  Download failed (attempt ${attempt}/3): ${url}"
+        rm -f "$dest"
+        sleep 3
+    done
+    echo "❌ Could not download ${url}"
+    return 1
+}
+
 # Initial configuration only on first run
 if [ ! -f /root/.first_run ]; then
     echo -n
     echo "✨ All the necessary packages will be installed. Please be patient."
     echo -n
-    touch /root/.first_run
     echo "kali-docker" > /etc/hostname
     mkdir -p /root/proyectos_hack
     
@@ -49,13 +65,18 @@ if [ ! -f /root/.first_run ]; then
     rm -rf /usr/share/wordlists
     mkdir -p /usr/share/wordlists/SecLists/Discovery/Web-Content/
     mkdir -p /usr/share/wordlists/SecLists/Discovery/DNS
-    wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
-    wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt -O /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt 
-    wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt -O /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
-    wget --quiet https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-110000.txt -O /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-110000.txt
+    download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
+    download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt
+    download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
+    download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-110000.txt /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-110000.txt
 
 
     echo "cd /root/proyectos_hack/" >> /root/.bashrc
+
+    # Mark setup as complete only here, at the very end: if any step above
+    # failed, set -e aborts before this and the next boot retries the install.
+    touch /root/.first_run
+    echo "✅ Initial setup completed."
 
 else
     # Update repos on every startup
