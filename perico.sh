@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="20250420"
+VERSION="20261103"
 
 clear
 echo "   ##     PENTESTING RIDÍCULAMENTE CÓMODO   ##"

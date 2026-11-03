@@ -16,9 +16,10 @@ services:
       - ./perico:/root/proyectos_hack:Z
       - ./entrypoint.sh:/entrypoint.sh:Z
     environment:
-      - WPSCAN_TOKEN=${WPSCAN_TOKEN}
-      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
-      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      # :- gives an empty default so compose doesn't warn when no .env is present
+      - WPSCAN_TOKEN=${WPSCAN_TOKEN:-}
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY:-}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
       - TZ=Europe/Madrid
       - DEBIAN_FRONTEND=noninteractive
     entrypoint: ./entrypoint.sh
