@@ -358,7 +358,7 @@ ROBOTS_CODE=$(tail -n1 <<<"$ROBOTS")
 ROBOTS_BODY=$(sed '$d' <<<"$ROBOTS")
 if [[ $ROBOTS_CODE != 200 ]] || [[ -z $ROBOTS_BODY ]] || grep -qi captcha <<<"$ROBOTS_BODY"; then
   echo | tee -a $RUTA/RESUMEN.txt
-	echo -e "\t\e[1;31m[!] Archivo robots.txt no encontrado o tiene captcha (HTTP ${ROBOTS_CODE})\e[0m" | tee -a $RUTA/RESUMEN.txt
+	echo -e "\t\e[1;37m[!] Archivo robots.txt no encontrado o tiene captcha (HTTP ${ROBOTS_CODE})\e[0m" | tee -a $RUTA/RESUMEN.txt
 else
 	grep . <<<"$ROBOTS_BODY" | sed 's/^/\t/' | tee -a $RUTA/robots.txt | tee -a $RUTA/RESUMEN.txt
 fi
