@@ -20,6 +20,7 @@ services:
       - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
       - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
       - TZ=Europe/Madrid
+      - DEBIAN_FRONTEND=noninteractive
     entrypoint: ./entrypoint.sh
     command: /bin/bash
     restart: unless-stopped
