@@ -67,7 +67,7 @@ if [ ! -f /root/.first_run ]; then
     mkdir -p /usr/share/wordlists/SecLists/Discovery/DNS
     download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/raft-small-words-lowercase.txt /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-small-words-lowercase.txt
     download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-5000.txt /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-5000.txt
-    download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/directory-list-2.3-medium.txt /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
+    download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-medium.txt /usr/share/wordlists/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt
     download https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Discovery/DNS/subdomains-top1million-110000.txt /usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-110000.txt
 
 
